@@ -50,7 +50,7 @@ function bmtpBind(): void {
     world.sendMessage("No events found!");
     return;
   } else if (!world.afterEvents.chatSend) {
-    world.sendMessage("No chat events found!");
+    world.sendMessage("No chat events found! Beta API changed.");
     return;
   }
   world.afterEvents.chatSend.subscribe((eventData) => {
@@ -63,7 +63,7 @@ function bmtpBind(): void {
       }
     }
   });
-  world.sendMessage("Lol, just now!");
+  world.sendMessage("Ready!");
 }
 
 system.run(bmtpBind);
