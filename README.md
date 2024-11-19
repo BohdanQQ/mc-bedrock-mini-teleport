@@ -43,7 +43,7 @@ To enable Experimental API in your server world you **have to copy it over a mac
 For more: 
 https://learn.microsoft.com/en-us/minecraft/creator/documents/scriptingservers?view=minecraft-bedrock-stable#building-out-your-server-world
 
-As this is purely adhoc solution for my personal needs, I just drop the contents of the 
-`dist` folder into `serverRoot/development_behavior_packs/starter`.
+As this is purely adhoc solution for my personal needs (yes, I did not bother with the internal project renaming, UUIDs, ...), 
+I just drop the contents of the `dist` folder into `serverRoot/development_behavior_packs/starter`.
 
 **The Experimental API used by the plugin may break anytime!**
