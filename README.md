@@ -3,7 +3,7 @@
 **Experimental Beta API required**
 
 This is an ad-hoc implementation of a simple teleport command. The script 
-plugin is based on the Starter template.
+plugin is based on the [minecraft-scripting-samples/starter](https://github.com/microsoft/minecraft-scripting-samples/tree/main/ts-starter) template.
 
 The build step `npm run build` is modified. We parse the `locations.csv` file 
 placed in the root of the project. The file contains CSV rows in the format:
@@ -30,7 +30,7 @@ There is no filesystem access for the plugin, location updates are therefore pos
 2. ("just works" / might break anytime) manually editing deployed file
    * usually single `.js` file in `[BEHAVIOR PACKS ROOT]/starter/scripts` 
 
-Both methods requires running the `reload` (`/reload` for clients).
+Both methods require running the `reload` (`/reload` for clients).
 
 The lack of "dynamic" presistence also prohibits "client-side" editing of the location list.
 
@@ -38,12 +38,12 @@ The lack of "dynamic" presistence also prohibits "client-side" editing of the lo
 
 *chuckles*
 
-To enable Experimental API in your server world you **have to copy it over a machine which can run the Bedrock client and enable the APIs over there. After that you have to copy this modified world back.**. (Thanks, Microsoft! Q_Q) 
+To enable Experimental API in your server world you **have to copy it over a machine which can run the Bedrock client and enable the APIs over there. After that you have to copy this modified world back...** (Thanks, Microsoft! Q_Q) 
 
 For more: 
 https://learn.microsoft.com/en-us/minecraft/creator/documents/scriptingservers?view=minecraft-bedrock-stable#building-out-your-server-world
 
-As this is purely adhoc solution for my personal needs (yes, I did not bother with the internal project renaming, UUIDs, ...), 
+As this is purely ad-hoc solution for my personal needs (yes, I did not bother with the internal project renaming, UUIDs, ...), 
 I just drop the contents of the `dist` folder into `serverRoot/development_behavior_packs/starter`.
 
 **The Experimental API used by the plugin may break anytime!**
