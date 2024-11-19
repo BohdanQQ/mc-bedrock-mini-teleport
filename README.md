@@ -30,7 +30,7 @@ There is no filesystem access for the plugin, location updates are therefore pos
 2. ("just works" / might break anytime) manually editing deployed file
    * usually single `.js` file in `[BEHAVIOR PACKS ROOT]/starter/scripts` 
 
-Both methods require running the `reload` (`/reload` for clients).
+Both methods require running the `reload` command (`/reload` for clients).
 
 The lack of "dynamic" presistence also prohibits "client-side" editing of the location list.
 
