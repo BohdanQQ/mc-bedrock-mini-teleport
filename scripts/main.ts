@@ -58,9 +58,9 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player, locations: BmTpLoc
     }
     const { x, y, z } = dimLookup;
     player.runCommandAsync(`tp ${x} ${y} ${z}`).then(() => {
-      player.sendMessage("Teleported to " + cmd);
+      player.sendMessage("Teleported to " + cmd.value);
     }).catch((err) => {
-      player.sendMessage("Failed to teleport to " + cmd);
+      player.sendMessage("Failed to teleport to " + cmd.value);
     });
   } else {
     player.sendMessage("Unknown command!");
