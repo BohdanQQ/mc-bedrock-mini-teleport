@@ -1,4 +1,4 @@
-# Simple Minecraft Bedrock teleport
+# Simple Minecraft Bedrock named teleport
 
 **Experimental Beta API required**
 
