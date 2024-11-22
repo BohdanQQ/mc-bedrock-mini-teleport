@@ -1,27 +1,8 @@
 import { world, system, Player } from "@minecraft/server";
-import { staticLocations } from "./locations";
-import { BmTpLocationMap, Coord3, McDimensions, BmTpCommand, dimString, HelpAll, HelpCurrentDimension, Teleport, BmTpDimensionLocations } from "./bmtp-types";
+import { BmTpLocationMap, Coord3, BmTpCommand, dimString, HelpAll, HelpCurrentDimension, Teleport, BmTpDimensionLocations } from "./bmtp-types";
 import { parseBmtpCommand } from "./bmtp-parser";
-
-function dimIdString(dim: McDimensions): string {
-  switch (dim) {
-    case McDimensions.END: return "minecraft:the_end"
-    case McDimensions.NETHER: return "minecraft:nether"
-    case McDimensions.OVERWORLD: return "minecraft:overworld"
-  }
-}
-
-function translateDimension(player: Player): McDimensions {
-  switch (player.dimension.id) {
-    case dimIdString(McDimensions.OVERWORLD): return McDimensions.OVERWORLD
-    case dimIdString(McDimensions.NETHER): return McDimensions.NETHER
-    case dimIdString(McDimensions.END): return McDimensions.END
-  }
-  const msg = `Dimension Id ${player.dimension.id} not recognised!`;
-  player.sendMessage("ERROR, please report this: " + msg);
-  throw new Error(msg);
-}
-
+import { translateDimension } from "./bmtp-mc-lib";
+// TODO implement
 function getLocationListString(ls: Iterable<[string, Coord3]>): string {
   return Array.from(ls).map(([k, { x, y, z }]) => `${k}: ${x}, ${y}, ${z}`).join("\n");
 }
@@ -35,7 +16,7 @@ function getPlayerDimensionLocations(p: Player, ls: BmTpLocationMap): BmTpDimens
   return dimensionLocations;
 }
 
-function executeBmtpCommand(cmd: BmTpCommand, player: Player, locations: BmTpLocationMap): void {
+function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
   if (cmd instanceof HelpCurrentDimension) {
     const dim = translateDimension(player);
     let dimensionLocations = getPlayerDimensionLocations(player, locations);
@@ -81,7 +62,7 @@ function bmtpBind(): void {
     const msg = eventData.message;
     const cmd = parseBmtpCommand(msg);
     if (cmd != null) {
-      executeBmtpCommand(cmd, player, staticLocations);
+      executeBmtpCommand(cmd, player);
     }
   });
   world.sendMessage("BmTp is ready!");

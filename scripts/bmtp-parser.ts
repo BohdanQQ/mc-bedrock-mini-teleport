@@ -1,6 +1,6 @@
 
 import { BMTP_COMMAND_HEAD, BmTpCommand, BmTpName, Command, HelpAll, HelpCurrentDimension, Teleport } from "./bmtp-types";
-
+// TODO ADD COMMANDS
 const HELP_ALL_FLYWEIGHT = new HelpAll();
 const HELP_DIM_FLYWEIGHT = new HelpCurrentDimension();
 

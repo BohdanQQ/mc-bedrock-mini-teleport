@@ -4,17 +4,17 @@ export type Coord3 = {
   z: number
 };
 
-export enum McDimensions {
+export enum McDimension {
   OVERWORLD,
   NETHER,
   END
 };
 
-export function dimString(dim: McDimensions): string {
+export function dimString(dim: McDimension): string {
   switch (dim) {
-    case McDimensions.END: return "End"
-    case McDimensions.NETHER: return "Nether"
-    case McDimensions.OVERWORLD: return "Overworld"
+    case McDimension.END: return "End"
+    case McDimension.NETHER: return "Nether"
+    case McDimension.OVERWORLD: return "Overworld"
   }
 }
 export interface Command {
@@ -40,6 +40,6 @@ export type BmTpName = string;
 export type BmTpCommand = HelpAll | HelpCurrentDimension | Teleport;
 
 export type BmTpDimensionLocations = Map<BmTpName, Coord3>
-export type BmTpLocationMap = Map<McDimensions, BmTpDimensionLocations>;
+export type BmTpLocationMap = Map<McDimension, BmTpDimensionLocations>;
 
 export const BMTP_COMMAND_HEAD: string = "!tp";
