@@ -1,4 +1,4 @@
-import { McDimension } from "./bmtp-types"
+import { McDimension, CmdDesc, ArgType } from "./bmtp-types"
 import { Player } from "@minecraft/server"
 
 export function getDimensions(): McDimension[] {
@@ -21,4 +21,8 @@ export function translateDimension(player: Player): McDimension {
   const msg = `Dimension Id ${player.dimension.id} not recognised!`;
   player.sendMessage("ERROR, please report this: " + msg);
   throw new Error(msg);
+}
+
+export function getMandatoryArgCount(cmd: CmdDesc): number {
+  return cmd.argDesc.filter(d => ![ArgType.OptString].includes(d.type)).length;
 }

@@ -47,3 +47,8 @@ As this is purely ad-hoc solution for my personal needs (yes, I did not bother w
 I just drop the contents of the `dist` folder into `serverRoot/development_behavior_packs/starter`.
 
 **The Experimental API used by the plugin may break anytime!**
+
+
+## Testing
+
+`npx tsx .\test\test-main.ts`

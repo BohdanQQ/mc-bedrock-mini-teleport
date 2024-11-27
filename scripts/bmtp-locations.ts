@@ -1,7 +1,5 @@
-import { world, system, Player, Dimension } from "@minecraft/server";
-import { Coord3, McDimension } from "./bmtp-types"
-import * as lib from "./bmtp-mc-lib"
-
+import { world } from "@minecraft/server";
+import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, DESC_REGEX } from "./bmtp-types"
 
 // hopefully never used
 const LOC_DB_CURRENT_VER = 1;
@@ -20,11 +18,6 @@ function getDimensionId(dim: McDimension): string {
   }
   throw new Error("Dimension not recognised");
 }
-
-const NAME_REGEX = new RegExp("^[a-zA-Z\-]+$");
-const DESC_REGEX = new RegExp("^[a-zA-Z\-]+$");
-const COORD_NUM_SEP = '_';
-const MAX_STR_LEN = 64;
 
 function validateRe(value: string, re: RegExp, errDescriptor: string): boolean | string {
   if (!re.test(value)) {
@@ -58,11 +51,17 @@ function getDescriptionIdChecked(name: string, dim: McDimension): string {
 
 function parseLocationCoords(value: string): Coord3 | undefined {
   try {
-    const [x, y, z] = value.split(COORD_NUM_SEP).map(Number);
+    const [x, y, z] = value.split(COORD_NUM_SEP).map(v => {
+      const rv = Number(v);
+      if (Number.isNaN(rv)) {
+        throw new Error("Not a number");
+      }
+      return rv;
+    });
     return {
       x, y, z
     };
-  } catch (e) {
+  } catch {
     return undefined;
   }
 }
@@ -106,14 +105,14 @@ export function locationFromDb(name: string, dimension: McDimension): Location |
 }
 
 export class Location {
-  _name: string = ""
+  _name = ""
   _dimension: McDimension = McDimension.OVERWORLD
   _coords: Coord3 | undefined
   _description: string | undefined
 
   constructor(name: string, dimension: McDimension, coords = undefined, description = undefined) {
     this._name = name;
-    let checkedRes = dbValueStringValidate(name, NAME_REGEX, 'name');
+    const checkedRes = dbValueStringValidate(name, NAME_REGEX, 'name');
     if (typeof checkedRes === 'string' || !checkedRes) {
       throw new Error('Location name is invalid');
     }
