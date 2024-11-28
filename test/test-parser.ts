@@ -189,7 +189,7 @@ function TESTparseAddCurrDim() {
   testRunner('addCurrentDimension command', doParse, cannotParse);
 }
 
-function TESTgeneralLocationOp(isGood: (v: any) => boolean, cmd: string) {
+function TESTgeneralLocationOp(isGood: (v: types.BmTpCommand) => boolean, cmd: string) {
   const goodCmdStart = (...args: string[]) => commandCtor(...[cmd].concat(args));
   const testCasesBasicNoDesc = combinations([goodBad('not-banned12', 'Q?Q?}{"'), goodBad('end', 'garbageDimension'), goodBad('1', 'a'), goodBad('0', 'c'), goodBad('-1', 'xd')], [{ combination: [cmd], allGood: true }])
   const testCasesLongNoDesc = combinations([goodBad('not-banned12', SIMPLE_LONG_STR), goodBad('end', SIMPLE_LONG_STR), goodBad('1', SIMPLE_LONG_STR), goodBad('0', SIMPLE_LONG_STR), goodBad('-1', SIMPLE_LONG_STR)], [{ combination: [cmd], allGood: true }])

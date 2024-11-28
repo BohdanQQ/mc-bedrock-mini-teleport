@@ -1,4 +1,4 @@
-import { argv, parallel, series, task, tscTask, nodeExecTask } from "just-scripts";
+import { argv, parallel, series, task, tscTask } from "just-scripts";
 import {
   BundleTaskParameters,
   CopyTaskParameters,

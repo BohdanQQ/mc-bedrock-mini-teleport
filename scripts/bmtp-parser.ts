@@ -61,6 +61,7 @@ export function parseArg(val: string, desc: ArgDesc): string | number | WrapMcDi
     case ArgType.String: return val;
     case ArgType.OptString: return val;
     case ArgType.Int:
+      // eslint-disable-next-line no-case-declarations
       const res = Number(val);
       if (Number.isNaN(res)) {
         throw new Error(`${val} passed as argument ${desc.name} is not a number`);
