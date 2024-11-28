@@ -78,15 +78,23 @@ export interface CmdDesc {
   construct: (args: ParsedArgsArr) => BmTpCommand
 }
 
+// color coding: CMD: golden/yellow, ARGS: light green, description - gray
 
 export function getHelpString(cmd: CmdDesc) {
-  return `${cmd.alts.join('|')} ${cmd.argDesc.map(i => i.name).join(' ')
-    } \n -> ${cmd.usageStr} `;
+  return `${BMTP_COMMAND_HEAD} \u00A76${cmd.alts.join('\u00A7f | \u00A76')}  \u00A7a${cmd.argDesc.map(i => i.name.toUpperCase()).join('  ')}\u00A7f\n    \u00A77${cmd.usageStr}\u00A7f\n`;
 }
 
 export class ListAll { };
 
-export class Help { };
+export class Help {
+  getHelpString(): string {
+    let res = "Usage: " + BMTP_COMMAND_HEAD + " \u00A76COMMAND\u00A7f  \u00A7aARGUMENTS\u00A7f\n";
+    for (const [_, v] of parseMap) {
+      res += getHelpString(v);
+    }
+    return res;
+  }
+};
 
 export class ListCurrentDimension { };
 
@@ -200,6 +208,7 @@ function valueOrUndefined<T>(index: number, source: any[]): (T | undefined) {
   return source[index] as T;
 }
 
+// TODO : add export command
 /** Command descriptions for the parser
  * Due to the current parsing implementation, optional args MUST be at the tail
  * and MUST be considered eagerly evaluated 
@@ -207,6 +216,14 @@ function valueOrUndefined<T>(index: number, source: any[]): (T | undefined) {
  * Also, the order of argDesc and the arguments of construct fucntion must correspond 
  */
 export const parseMap: Map<string, CmdDesc> = new Map([
+  [
+    Teleport.name, {
+      alts: [],
+      argDesc: [{ name: "name", type: ArgType.String }],
+      usageStr: "teleports you within your current dimension",
+      construct: ([name]: ParsedArgsArr) => new Teleport(name as string)
+    }
+  ],
   [
     ListAll.name, {
       alts: [NAMES.listAll],
@@ -229,14 +246,6 @@ export const parseMap: Map<string, CmdDesc> = new Map([
       argDesc: [],
       usageStr: "lists all locations in this dimension",
       construct: () => new ListCurrentDimension()
-    }
-  ],
-  [
-    Teleport.name, {
-      alts: [],
-      argDesc: [{ name: "name", type: ArgType.String }],
-      usageStr: "teleports you within your current dimension",
-      construct: ([name]: ParsedArgsArr) => new Teleport(name as string)
     }
   ],
   [
