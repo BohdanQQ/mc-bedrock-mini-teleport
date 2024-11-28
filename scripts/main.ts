@@ -1,12 +1,13 @@
 import { world, system, Player } from "@minecraft/server";
-import { BmTpLocationMap, Coord3, BmTpCommand, dimString, Teleport, BmTpDimensionLocations, Help } from "./bmtp-types";
-import { parseBmtpCommand, ParsingError } from "./bmtp-parser";
-import { translateDimension } from "./bmtp-mc-lib";
-import { initialize } from "./bmtp-locations";
-// TODO implement
-// function getLocationListString(ls: Iterable<[string, Coord3]>): string {
-//   return Array.from(ls).map(([k, { x, y, z }]) => `${k}: ${x}, ${y}, ${z}`).join("\n");
-// }
+import { BmTpCommand, dimString, Teleport, Help, ListCurrentDimension, ListAll, McDimension } from "./bmtp-types";
+import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
+import { getDimensions, translateDimension } from "./bmtp-mc-lib";
+import { getDimensionLocations, initialize } from "./bmtp-locations";
+
+function getLocationListString(d: McDimension): string {
+  return Array.from(getDimensionLocations(d).entries())
+    .map(([k, v]) => `\u00A7e${k}\u00A7f: \u00A7b${v._coords?.x}\u00A7f, \u00A7b${v._coords?.y}\u00A7f, \u00A7b${v._coords?.z}\u00A7f`).join('\n');
+}
 
 // function getPlayerDimensionLocations(p: Player, ls: BmTpLocationMap): BmTpDimensionLocations {
 //   const dim = translateDimension(p);
@@ -17,37 +18,41 @@ import { initialize } from "./bmtp-locations";
 //   return dimensionLocations;
 // }
 
-// function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
-//   if (cmd instanceof Help) {
-//     const dim = translateDimension(player);
-//     const dimensionLocations = getPlayerDimensionLocations(player, locations);
-//     player.sendMessage(`Available locations in ${dimString(dim)}:\n` + getLocationListString(dimensionLocations.entries()));
-//     return;
-
-//   } else if (cmd instanceof HelpAll) {
-//     const msg = Array.from(locations.entries())
-//       .map(([dim, dimensionLocations]) => dimensionLocations.size === 0 ? "" : `_____${dimString(dim)}:_____\n${getLocationListString(dimensionLocations.entries())}\n`)
-//       .reduce((p, c) => p + c);
-//     player.sendMessage("Available locations in all dimensions: \n" + msg);
-//     return;
-//   } else if (cmd instanceof Teleport) {
-//     const dim = translateDimension(player);
-//     const dimensionLocations = getPlayerDimensionLocations(player, locations);
-//     const dimLookup = dimensionLocations.get(cmd.value);
-//     if (dimLookup === undefined) {
-//       player.sendMessage("Invalid location " + cmd.value + " for the current dimension: " + dimString(dim));
-//       return;
-//     }
-//     const { x, y, z } = dimLookup;
-//     player.runCommandAsync(`tp ${x} ${y} ${z}`).then(() => {
-//       player.sendMessage("Teleported to " + cmd.value);
-//     }).catch((err) => {
-//       player.sendMessage("Failed to teleport to " + cmd.value);
-//     });
-//   } else {
-//     player.sendMessage("Unknown command!");
-//   }
-// }
+function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
+  const dim = translateDimension(player);
+  if (cmd instanceof Help) {
+    player.sendMessage(cmd.getHelpString());
+    return;
+  } else if (cmd instanceof ListCurrentDimension) {
+    const msg = getLocationListString(dim);
+    player.sendMessage(`Available locations in \u00A7d${dimString(dim)}\u00A7f: \n` + msg);
+    return;
+  } else if (cmd instanceof ListAll) {
+    const msg = getDimensions().map(d => {
+      return `\u00A7d${dimString(d)}\u00A7f:` + getLocationListString(dim);
+    }).join('\n');
+    player.sendMessage(`Available locations in all dimensions:\n${msg} \n`);
+    return;
+  }
+  else if (cmd instanceof Teleport) {
+    // const dim = translateDimension(player);
+    // const dimensionLocations = getPlayerDimensionLocations(player, locations);
+    // const dimLookup = dimensionLocations.get(cmd.value);
+    // if (dimLookup === undefined) {
+    //   player.sendMessage("Invalid location " + cmd.value + " for the current dimension: " + dimString(dim));
+    //   return;
+    // }
+    // const { x, y, z } = dimLookup;
+    // player.runCommandAsync(`tp ${x} ${y} ${z}`).then(() => {
+    //   player.sendMessage("Teleported to " + cmd.value);
+    // }).catch((err) => {
+    //   player.sendMessage("Failed to teleport to " + cmd.value);
+    // });
+    player.sendMessage("TP!");
+  } else {
+    player.sendMessage("Unknown command!");
+  }
+}
 
 function bmtpBind(): void {
   world.sendMessage("BmTp is being activated!");
@@ -71,8 +76,8 @@ function bmtpBind(): void {
     const msg = eventData.message;
     const cmd = parseBmtpCommand(msg);
     if (cmd instanceof ParsingError) {
-      player.sendMessage(`ERROR: ${cmd.msg}`);
-    } else {
+      player.sendMessage(`\u00A7cError!\u00A7f\n${cmd.msg}`);
+    } else if (!(cmd instanceof SilentError)) {
       executeBmtpCommand(cmd, player);
     }
   });

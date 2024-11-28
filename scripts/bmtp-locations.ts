@@ -256,8 +256,10 @@ export class Location {
 // haha i hope this is not run on multiple threads with invisible
 // suspension points *_*
 const locations = new Map<McDimension, Map<string, Location>>();
-export function getLocations() {
-  return locations;
+
+
+export function getDimensionLocations(dim: McDimension): Map<string, Location> {
+  return locations.get(dim)!;
 }
 
 export function initialize(): string | undefined {
