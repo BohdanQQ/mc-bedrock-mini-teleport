@@ -1,15 +1,20 @@
 import { world } from "@minecraft/server";
-import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, DESC_REGEX } from "./bmtp-types"
+import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, ID_SEP, DESC_REGEX } from "./bmtp-types"
+import { getDimensions } from "./bmtp-mc-lib";
 
 // hopefully never used
-const LOC_DB_CURRENT_VER = 1;
+const LOC_DB_CURRENT_VER = 0;
+const BMTP_PREFIX = "__BMTP";
 const LOC_DB_PREFIX_ALL_VERSIONS = [
-  "__BMTP1"
+  BMTP_PREFIX + "1"
 ]
 const LOC_DB_PREFIX_CURRENT_VER = LOC_DB_PREFIX_ALL_VERSIONS[LOC_DB_CURRENT_VER];
 const LOCATION_ID_PREFIX = LOC_DB_PREFIX_CURRENT_VER + "LOC__";
 const DESCRIPTION_ID_PREFIX = LOC_DB_PREFIX_CURRENT_VER + "DES__";
 
+// keep it fixed to 2
+const DIM_ID_LEN = 2;
+/** dim to str */
 function getDimensionId(dim: McDimension): string {
   switch (dim) {
     case McDimension.OVERWORLD: return "ov"
@@ -17,6 +22,16 @@ function getDimensionId(dim: McDimension): string {
     case McDimension.END: return "ed"
   }
   throw new Error("Dimension not recognised");
+}
+
+/** str dim */
+function getDimension(id: string): McDimension {
+  switch (id) {
+    case "ov": return McDimension.OVERWORLD
+    case "ne": return McDimension.NETHER
+    case "ed": return McDimension.END
+  }
+  throw new Error("Dimension id not recognised");
 }
 
 function validateRe(value: string, re: RegExp, errDescriptor: string): boolean | string {
@@ -38,7 +53,7 @@ function getLocationIdChecked(name: string, dim: McDimension): string {
   if (typeof checkedRes === 'string' || !checkedRes) {
     throw new Error("Name check failed when creating location id");
   }
-  return `${LOCATION_ID_PREFIX}${getDimensionId(dim)}_${name}`
+  return `${LOCATION_ID_PREFIX}${getDimensionId(dim)}${ID_SEP}${name}`
 }
 
 function getDescriptionIdChecked(name: string, dim: McDimension): string {
@@ -46,7 +61,37 @@ function getDescriptionIdChecked(name: string, dim: McDimension): string {
   if (typeof checkedRes === 'string' || !checkedRes) {
     throw new Error("Name check failed when creating location description id");
   }
-  return `${DESCRIPTION_ID_PREFIX}${getDimensionId(dim)}_${name}`
+  return `${DESCRIPTION_ID_PREFIX}${getDimensionId(dim)}${ID_SEP}${name}`
+}
+
+/** @returns undefined - not recognised as ID, string - error when parsing */
+function parseDimNameFromId(id: string): { dim: McDimension, name: string } | string | undefined {
+  const isDesc = id.startsWith(DESCRIPTION_ID_PREFIX);
+  const isLoc = id.startsWith(LOCATION_ID_PREFIX);
+  if (!isDesc && !isLoc) {
+    return undefined;
+  }
+
+  let dimIdEnd = 0;
+  if (isDesc) {
+    dimIdEnd = DESCRIPTION_ID_PREFIX.length + DIM_ID_LEN;
+  } else {
+    dimIdEnd = LOCATION_ID_PREFIX.length + DIM_ID_LEN;
+  }
+  try {
+    const rv = {
+      dim: getDimension(id.slice(DESCRIPTION_ID_PREFIX.length, dimIdEnd)),
+      name: id.slice(dimIdEnd + ID_SEP.length)
+    };
+
+    const res = validateRe(rv.name, NAME_REGEX, 'name from DB');
+    if (typeof res === 'string') {
+      throw new Error(res);
+    }
+    return rv;
+  } catch (e) {
+    return `${e}`;
+  }
 }
 
 function parseLocationCoords(value: string): Coord3 | undefined {
@@ -206,4 +251,45 @@ export class Location {
       .filter(i => !isWorldPropertyNew(i))
       .forEach(i => unsetWorldProperty(i));
   }
+}
+
+// haha i hope this is not run on multiple threads with invisible
+// suspension points *_*
+const locations = new Map<McDimension, Map<string, Location>>();
+export function getLocations() {
+  return locations;
+}
+
+export function initialize(): string | undefined {
+  const allIds = world.getDynamicPropertyIds();
+  const parsed = allIds
+    .filter(i => i.startsWith(BMTP_PREFIX))
+    .map(parseDimNameFromId)
+    .filter(v => v !== undefined); // filter unrecognized
+
+  const errReports = parsed.filter(v => typeof v === 'string');
+  let errors = `INITIALIZATION encountered following ERRORS:\n` + errReports.join('\n');
+  if (errReports.length > 0) {
+    return errors;
+  }
+
+  for (const dim of getDimensions()) {
+    locations.set(dim, new Map());
+  }
+
+  for (const { name, dim } of parsed.filter(v => typeof v !== 'string')) {
+    const dimMap = locations.get(dim)!;
+    try {
+      const dataFromDb = locationFromDb(name, dim);
+      if (dataFromDb === undefined) {
+        throw new Error("cannot parse locaiton from the world property database");
+      }
+      dimMap.set(name, dataFromDb);
+    } catch (e) {
+      errors += `\n${e}`;
+      return errors;
+    }
+  }
+
+  return undefined;
 }

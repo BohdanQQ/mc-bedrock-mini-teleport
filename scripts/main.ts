@@ -1,11 +1,9 @@
-// REWORK WIP - THIS BRANCH DOES NOT WORK YET
-
-
-// import { world, system, Player } from "@minecraft/server";
-// import { BmTpLocationMap, Coord3, BmTpCommand, dimString, HelpAll, HelpCurrentDimension, Teleport, BmTpDimensionLocations } from "./bmtp-types";
-// import { parseBmtpCommand } from "./bmtp-parser";
-// import { translateDimension } from "./bmtp-mc-lib";
-// // TODO implement
+import { world, system, Player } from "@minecraft/server";
+import { BmTpLocationMap, Coord3, BmTpCommand, dimString, Teleport, BmTpDimensionLocations, Help } from "./bmtp-types";
+import { parseBmtpCommand, ParsingError } from "./bmtp-parser";
+import { translateDimension } from "./bmtp-mc-lib";
+import { initialize } from "./bmtp-locations";
+// TODO implement
 // function getLocationListString(ls: Iterable<[string, Coord3]>): string {
 //   return Array.from(ls).map(([k, { x, y, z }]) => `${k}: ${x}, ${y}, ${z}`).join("\n");
 // }
@@ -20,9 +18,9 @@
 // }
 
 // function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
-//   if (cmd instanceof HelpCurrentDimension) {
+//   if (cmd instanceof Help) {
 //     const dim = translateDimension(player);
-//     let dimensionLocations = getPlayerDimensionLocations(player, locations);
+//     const dimensionLocations = getPlayerDimensionLocations(player, locations);
 //     player.sendMessage(`Available locations in ${dimString(dim)}:\n` + getLocationListString(dimensionLocations.entries()));
 //     return;
 
@@ -34,7 +32,7 @@
 //     return;
 //   } else if (cmd instanceof Teleport) {
 //     const dim = translateDimension(player);
-//     let dimensionLocations = getPlayerDimensionLocations(player, locations);
+//     const dimensionLocations = getPlayerDimensionLocations(player, locations);
 //     const dimLookup = dimensionLocations.get(cmd.value);
 //     if (dimLookup === undefined) {
 //       player.sendMessage("Invalid location " + cmd.value + " for the current dimension: " + dimString(dim));
@@ -51,24 +49,34 @@
 //   }
 // }
 
-// function bmtpBind(): void {
-//   world.sendMessage("BmTp is being activated!");
-//   if (!world.afterEvents) {
-//     world.sendMessage("No afterEvents found!");
-//     return;
-//   } else if (!world.afterEvents.chatSend) {
-//     world.sendMessage("No chatSend events found! Beta API has changed.");
-//     return;
-//   }
-//   world.afterEvents.chatSend.subscribe((eventData) => {
-//     const player = eventData.sender;
-//     const msg = eventData.message;
-//     const cmd = parseBmtpCommand(msg);
-//     if (cmd != null) {
-//       executeBmtpCommand(cmd, player);
-//     }
-//   });
-//   world.sendMessage("BmTp is ready!");
-// }
+function bmtpBind(): void {
+  world.sendMessage("BmTp is being activated!");
+  if (!world.afterEvents) {
+    world.sendMessage("No afterEvents found!");
+    return;
+  } else if (!world.afterEvents.chatSend) {
+    world.sendMessage("No chatSend events found! Beta API has changed.");
+    return;
+  }
 
-// system.run(bmtpBind);
+  world.sendMessage("Initializing...");
+  const res = initialize();
+  if (res !== undefined) {
+    world.sendMessage(res);
+    return;
+  }
+
+  world.afterEvents.chatSend.subscribe((eventData) => {
+    const player = eventData.sender;
+    const msg = eventData.message;
+    const cmd = parseBmtpCommand(msg);
+    if (cmd instanceof ParsingError) {
+      player.sendMessage(`ERROR: ${cmd.msg}`);
+    } else {
+      executeBmtpCommand(cmd, player);
+    }
+  });
+  world.sendMessage("BmTp is ready!");
+}
+
+system.run(bmtpBind);

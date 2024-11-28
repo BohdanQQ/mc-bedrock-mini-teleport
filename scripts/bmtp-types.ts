@@ -102,6 +102,7 @@ export const MAX_STR_LEN = 64;
 export const NAME_REGEX = new RegExp("^[0-9a-zA-Z\-]+$");
 export const DESC_REGEX = new RegExp("^[0-9a-zA-Z\-]+$");
 export const COORD_NUM_SEP = '_';
+export const ID_SEP = '_';
 
 
 function enforceStringLength(s: string) {
