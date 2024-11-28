@@ -98,11 +98,20 @@ function enforceNotReserved(vals: string[]) {
   }
 }
 
+export const MAX_STR_LEN = 64;
 export const NAME_REGEX = new RegExp("^[0-9a-zA-Z\-]+$");
 export const DESC_REGEX = new RegExp("^[0-9a-zA-Z\-]+$");
 export const COORD_NUM_SEP = '_';
 
+
+function enforceStringLength(s: string) {
+  if (s.length > MAX_STR_LEN) {
+    throw new Error(`String too long (${s.length} vs max ${MAX_STR_LEN})`);
+  }
+}
+
 function enforceLocationNameValid(s: string) {
+  enforceStringLength(s);
   if (!NAME_REGEX.test(s)) {
     throw new Error(`value ${s} cannot be used as a locaiton name`);
   }
@@ -112,6 +121,7 @@ function enforceDescriptionValid(s: string | undefined) {
   if (s === undefined) {
     return;
   }
+  enforceStringLength(s);
   if (!DESC_REGEX.test(s)) {
     throw new Error(`value ${s} cannot be used as a locaiton description`);
   }
@@ -290,8 +300,6 @@ function sanityCheck() /* of the parseMap (for duplicates) */ {
 }
 
 sanityCheck();
-
-export const MAX_STR_LEN = 64;
 
 export type BmTpCommand = ListAll | ListCurrentDimension | Help | Teleport | AddGeneralLocation | RemoveLocation | UpdateGeneralLocation | AddFromCurrentDimension | AddFromCurrentLocation;
 

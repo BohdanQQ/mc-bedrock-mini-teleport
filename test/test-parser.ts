@@ -3,6 +3,14 @@ import { parseArg } from '../scripts/bmtp-parser';
 import * as types from '../scripts/bmtp-types';
 import { simpleNotParsableTest, simpleParsableTest, commandCtor, testRunner, combinations, goodBad, testInform } from './test-lib';
 
+function getTooLongString(template: string) {
+  return template[0].repeat(types.MAX_STR_LEN + 1);
+}
+
+// must not be numbers-only, otherwise check "coordinate" 
+// combos where this string is used
+const SIMPLE_LONG_STR = getTooLongString('a');
+
 function TESTparseHelp() {
   const doParse = [
     ["help", () => simpleParsableTest(commandCtor(types.NAMES.help), v => v instanceof types.Help)],
@@ -10,7 +18,9 @@ function TESTparseHelp() {
   ];
   const cannotParse = [
     ['too many args help', () => simpleNotParsableTest(commandCtor(types.NAMES.help, 'garbage'))],
-    ['too many args help?', () => simpleNotParsableTest(commandCtor(types.NAMES.helpQ, 'garbage'))]
+    ['too many args help?', () => simpleNotParsableTest(commandCtor(types.NAMES.helpQ, 'garbage'))],
+    ['too many args help (long)', () => simpleNotParsableTest(commandCtor(types.NAMES.helpQ, SIMPLE_LONG_STR))],
+    ['too many args help? (long)', () => simpleNotParsableTest(commandCtor(types.NAMES.helpQ, SIMPLE_LONG_STR))],
   ];
 
   testRunner('help command', doParse, cannotParse);
@@ -31,20 +41,21 @@ function TESTparseListAll() {
     ["list-all", () => simpleParsableTest(commandCtor(types.NAMES.listAll), v => v instanceof types.ListAll)],
   ];
   const cannotParse = [
-    ['too many args', () => simpleNotParsableTest(commandCtor(types.NAMES.listAll, 'garbage'))]
+    ['too many args', () => simpleNotParsableTest(commandCtor(types.NAMES.listAll, 'garbage'))],
+    ['too many args (long)', () => simpleNotParsableTest(commandCtor(types.NAMES.listAll, SIMPLE_LONG_STR))],
   ];
   testRunner('list-all command', doParse, cannotParse);
 }
 
 function TESTparseTeleport() {
-  const tpCommandPred = v => v instanceof types.Teleport;
+  const isTpTo = (n: string) => v => v instanceof types.Teleport && v.name === n;
   const doParse = [
-    ['basic', () => simpleParsableTest(commandCtor('notbannedname'), tpCommandPred)],
-    ['dashes', () => simpleParsableTest(commandCtor('not-banned-name'), tpCommandPred)],
-    ['nums', () => simpleParsableTest(commandCtor('01234'), tpCommandPred)],
-    ['upper', () => simpleParsableTest(commandCtor('NOTBANNEDNAME'), tpCommandPred)],
-    ['all', () => simpleParsableTest(commandCtor('01234-not-banned'), tpCommandPred)],
-    ['space prefix', () => simpleParsableTest(commandCtor(' 01234-not-banned'), tpCommandPred)]
+    ['basic', () => simpleParsableTest(commandCtor('notbannedname'), isTpTo('notbannedname'))],
+    ['dashes', () => simpleParsableTest(commandCtor('not-banned-name'), isTpTo('not-banned-name'))],
+    ['nums', () => simpleParsableTest(commandCtor('01234'), isTpTo('01234'))],
+    ['upper', () => simpleParsableTest(commandCtor('NOTBANNEDNAME'), isTpTo('NOTBANNEDNAME'))],
+    ['all', () => simpleParsableTest(commandCtor('01234-not-banned'), isTpTo('01234-not-banned'))],
+    ['space prefix', () => simpleParsableTest(commandCtor(' 01234-not-banned'), isTpTo('01234-not-banned'))]
   ];
 
   const cannotParse = [
@@ -52,33 +63,35 @@ function TESTparseTeleport() {
     ['empty 2', () => simpleNotParsableTest(commandCtor(''))],
     ['whitespace', () => simpleNotParsableTest(commandCtor('\t\n   '))],
     ['special', () => simpleNotParsableTest(commandCtor('?!?!?!??!'))],
+    ['tooLong', () => simpleNotParsableTest(commandCtor(SIMPLE_LONG_STR))],
     ['garbage end', () => simpleNotParsableTest(types.BMTP_COMMAND_HEAD + 'garbage')],
     ['garbage with valid name', () => simpleNotParsableTest(types.BMTP_COMMAND_HEAD + 'garbage validName')],
     ['correct after garbage', () => simpleNotParsableTest('!garbage' + commandCtor('correct'))],
-    ['too many args', () => simpleNotParsableTest(commandCtor('notbannedname', 'garbage'))]
+    ['too many args', () => simpleNotParsableTest(commandCtor('notbannedname', 'garbage'))],
+    ['too many args (long)', () => simpleNotParsableTest(commandCtor('notbannedname', SIMPLE_LONG_STR))],
   ];
 
   testRunner('tp command', doParse, cannotParse);
 }
 
 function TESTparseRemove() {
-  const isRemoveCommand = v => v instanceof types.RemoveLocation;
+  const isRemoveCommand = (d: types.McDimension, n: string) => v => v instanceof types.RemoveLocation && v.dim === d && v.name === n;
   const goodRemoveCmdStart = (...args: string[]) => commandCtor(...[types.NAMES.remove].concat(args));
   const goodDimRemoveCmdStart = (...args: string[]) => goodRemoveCmdStart(...[types.dimString(types.McDimension.END)].concat(args));
   const doParse = [
-    ['basic', () => simpleParsableTest(goodDimRemoveCmdStart('notbanned'), isRemoveCommand)],
-    ['dashes', () => simpleParsableTest(goodDimRemoveCmdStart('not-banned'), isRemoveCommand)],
-    ['nums', () => simpleParsableTest(goodDimRemoveCmdStart('01234'), isRemoveCommand)],
-    ['upper', () => simpleParsableTest(goodDimRemoveCmdStart('NOTBANNEDNAME'), isRemoveCommand)],
-    ['all', () => simpleParsableTest(goodDimRemoveCmdStart('01234-not-banned'), isRemoveCommand)],
-    ['space prefix', () => simpleParsableTest(goodDimRemoveCmdStart(' 01234-not-banned'), isRemoveCommand)]
+    ['basic', () => simpleParsableTest(goodDimRemoveCmdStart('notbanned'), isRemoveCommand(types.McDimension.END, 'notbanned'))],
+    ['dashes', () => simpleParsableTest(goodDimRemoveCmdStart('not-banned'), isRemoveCommand(types.McDimension.END, 'not-banned'))],
+    ['nums', () => simpleParsableTest(goodDimRemoveCmdStart('01234'), isRemoveCommand(types.McDimension.END, '01234'))],
+    ['upper', () => simpleParsableTest(goodDimRemoveCmdStart('NOTBANNEDNAME'), isRemoveCommand(types.McDimension.END, 'NOTBANNEDNAME'))],
+    ['all', () => simpleParsableTest(goodDimRemoveCmdStart('01234-not-banned'), isRemoveCommand(types.McDimension.END, '01234-not-banned'))],
+    ['space prefix', () => simpleParsableTest(goodDimRemoveCmdStart(' 01234-not-banned'), isRemoveCommand(types.McDimension.END, '01234-not-banned'))]
   ];
 
   for (const dim of getDimensions()) {
     let dimStr = types.dimString(dim);
-    doParse.push(['dim ' + dimStr, () => simpleParsableTest(goodRemoveCmdStart(dimStr, 'ok'), isRemoveCommand)]);
+    doParse.push(['dim ' + dimStr, () => simpleParsableTest(goodRemoveCmdStart(dimStr, 'ok'), isRemoveCommand(dim, 'ok'))]);
     dimStr = dimStr.toLowerCase();
-    doParse.push(['dim ' + dimStr, () => simpleParsableTest(goodRemoveCmdStart(dimStr, 'ok'), isRemoveCommand)]);
+    doParse.push(['dim ' + dimStr, () => simpleParsableTest(goodRemoveCmdStart(dimStr, 'ok'), isRemoveCommand(dim, 'ok'))]);
   }
 
   const cannotParse = [
@@ -86,14 +99,17 @@ function TESTparseRemove() {
     ['empty locname 2', () => simpleNotParsableTest(goodDimRemoveCmdStart(''))],
     ['whitespace locname', () => simpleNotParsableTest(goodDimRemoveCmdStart('\t\n   '))],
     ['special locname', () => simpleNotParsableTest(goodDimRemoveCmdStart('?!?!?!??!'))],
+    ['long locname', () => simpleNotParsableTest(goodDimRemoveCmdStart(SIMPLE_LONG_STR))],
     ['invalid dimension', () => simpleNotParsableTest(goodRemoveCmdStart('invalidDimension'))],
     ['too many args', () => simpleNotParsableTest(goodDimRemoveCmdStart('validname', 'garbage'))],
+    ['too many args (long)', () => simpleNotParsableTest(goodDimRemoveCmdStart('validname', 'garbage', SIMPLE_LONG_STR))],
     ['too many args, correct tail', () => simpleNotParsableTest(goodRemoveCmdStart('garbage', types.dimString(types.McDimension.END), 'validname'))]
   ];
 
   testRunner('remove command', doParse, cannotParse);
 }
 
+// TODO: verify values
 function TESTparseAddSimple() {
   const isGood = v => v instanceof types.AddFromCurrentLocation;
   const goodAddCmdStart = (...args: string[]) => commandCtor(...[types.NAMES.addCurrentLoc].concat(args));
@@ -104,6 +120,7 @@ function TESTparseAddSimple() {
   const optionalGenN = (testName: string, locName: string, desc: string) => [
     [testName, () => simpleNotParsableTest(goodAddCmdStart(locName))],
     [`${testName} w desc`, () => simpleNotParsableTest(goodAddCmdStart(locName, desc))],
+    [`${testName} w tooLong desc`, () => simpleNotParsableTest(goodAddCmdStart(locName, SIMPLE_LONG_STR))],
   ];
   const doParse = optionalGen('basic', 'notbanned', 'hahadescription-12312')
     .concat(optionalGen('dashes', 'not-banned', 'hahadescription-12312'))
@@ -115,7 +132,9 @@ function TESTparseAddSimple() {
     ['empty locname', () => simpleNotParsableTest(goodAddCmdStart())],
     ['empty locname 2', () => simpleNotParsableTest(goodAddCmdStart(''))],
     ['too many args', () => simpleNotParsableTest(goodAddCmdStart('validname', 'desc', 'garbage'))],
-    ['invalid desc', () => simpleNotParsableTest(goodAddCmdStart('validname', '?>":{}{P><{'))]
+    ['invalid desc', () => simpleNotParsableTest(goodAddCmdStart('validname', '?>":{}{P><{'))],
+    [`tooLong desc & locname`, () => simpleNotParsableTest(goodAddCmdStart(SIMPLE_LONG_STR, SIMPLE_LONG_STR))],
+    [`tooLong locname`, () => simpleNotParsableTest(goodAddCmdStart(SIMPLE_LONG_STR))],
   ].concat(optionalGenN('whitespace locname', '\t\n   ', "desc"))
     .concat(optionalGenN('special locname 2', '?}{+_:">', "desc"))
     .concat(optionalGenN('special locname 3', '?}{+_:">', "desc??!@?#?!@"));
@@ -126,7 +145,8 @@ function TESTparseAddSimple() {
 function TESTparseAddCurrDim() {
   const isGood = v => v instanceof types.AddFromCurrentDimension;
   const goodAddCmdStart = (...args: string[]) => commandCtor(...[types.NAMES.addCoords].concat(args));
-  const textCasesBasicNoDesc = combinations([goodBad('not-banned12', 'Q?Q?}{"'), goodBad('1', 'a'), goodBad('0', 'c'), goodBad('-1', 'xd')], [{ combination: [types.NAMES.addCoords], allGood: true }])
+  const textCasesBasicNoDesc = combinations([goodBad('not-banned12', 'Q?Q?}{"'), goodBad('1', 'a'), goodBad('0', 'c'), goodBad('-1', 'xd')], [{ combination: [types.NAMES.addCoords], allGood: true }]);
+  const testCaseTooLong = combinations([goodBad('not-banned', SIMPLE_LONG_STR), goodBad('1', SIMPLE_LONG_STR), goodBad('0', SIMPLE_LONG_STR), goodBad('-1', SIMPLE_LONG_STR)], [{ combination: [types.NAMES.addCoords], allGood: true }]);
 
   const doParse: (string | (() => void))[][] = [];
   const cannotParse: (string | (() => void))[][] = [];
@@ -137,10 +157,27 @@ function TESTparseAddCurrDim() {
       doParse.push([`valid combination ${counter}`, () => simpleParsableTest(commandCtor(...c.combination), isGood)]);
       doParse.push([`valid combination ${counter} w desc`, () => simpleParsableTest(commandCtor(...c.combination, 'mydescription'), isGood)]);
       cannotParse.push([`valid  combination ${counter} w invalid desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push([`valid  combination ${counter} w long desc`, () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
     } else {
       cannotParse.push([`invalid combination ${counter}`, () => simpleNotParsableTest(commandCtor(...c.combination))]);
       cannotParse.push([`invalid combination ${counter} w desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description'))]);
       cannotParse.push([`invalid combination ${counter} w invalid desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push([`invalid combination ${counter} w long desc`, () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
+    }
+  }
+
+  for (const c of testCaseTooLong) {
+    counter += 1;
+    if (c.allGood) {
+      doParse.push([`valid combination ${counter}`, () => simpleParsableTest(commandCtor(...c.combination), isGood)]);
+      doParse.push([`valid combination ${counter} w desc`, () => simpleParsableTest(commandCtor(...c.combination, 'mydescription'), isGood)]);
+      cannotParse.push([`valid  combination ${counter} w invalid desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push([`valid  combination ${counter} w long desc`, () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
+    } else {
+      cannotParse.push([`invalid combination ${counter}`, () => simpleNotParsableTest(commandCtor(...c.combination))]);
+      cannotParse.push([`invalid combination ${counter} w desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description'))]);
+      cannotParse.push([`invalid combination ${counter} w invalid desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push([`invalid combination ${counter} w long desc`, () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
     }
   }
 
@@ -154,20 +191,41 @@ function TESTparseAddCurrDim() {
 
 function TESTgeneralLocationOp(isGood: (v: any) => boolean, cmd: string) {
   const goodCmdStart = (...args: string[]) => commandCtor(...[cmd].concat(args));
-  const textCasesBasicNoDesc = combinations([goodBad('not-banned12', 'Q?Q?}{"'), goodBad('end', 'garbageDimension'), goodBad('1', 'a'), goodBad('0', 'c'), goodBad('-1', 'xd')], [{ combination: [cmd], allGood: true }])
+  const testCasesBasicNoDesc = combinations([goodBad('not-banned12', 'Q?Q?}{"'), goodBad('end', 'garbageDimension'), goodBad('1', 'a'), goodBad('0', 'c'), goodBad('-1', 'xd')], [{ combination: [cmd], allGood: true }])
+  const testCasesLongNoDesc = combinations([goodBad('not-banned12', SIMPLE_LONG_STR), goodBad('end', SIMPLE_LONG_STR), goodBad('1', SIMPLE_LONG_STR), goodBad('0', SIMPLE_LONG_STR), goodBad('-1', SIMPLE_LONG_STR)], [{ combination: [cmd], allGood: true }])
 
   const doParse: (string | (() => void))[][] = [];
   const cannotParse: (string | (() => void))[][] = [];
-  for (const c of textCasesBasicNoDesc) {
+  let counter = 0;
+  for (const c of testCasesBasicNoDesc) {
+    counter += 1;
     if (c.allGood) {
-      doParse.push(['x', () => simpleParsableTest(commandCtor(...c.combination), isGood)]);
-      doParse.push(['x desc', () => simpleParsableTest(commandCtor(...c.combination, 'mydescription'), isGood)]);
-      cannotParse.push(['x desc not OK', () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      doParse.push([`valid combination ${counter}`, () => simpleParsableTest(commandCtor(...c.combination), isGood)]);
+      doParse.push([`valid combination ${counter} w desc`, () => simpleParsableTest(commandCtor(...c.combination, 'mydescription'), isGood)]);
+      cannotParse.push([`valid combination ${counter} w invalid desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push([`valid combination ${counter} w long desc`, () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
 
     } else {
       cannotParse.push(['y', () => simpleNotParsableTest(commandCtor(...c.combination))]);
       cannotParse.push(['y desc', () => simpleNotParsableTest(commandCtor(...c.combination, 'description'))]);
       cannotParse.push(['y desc not OK', () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push(['x desc too long', () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
+    }
+  }
+
+  for (const c of testCasesLongNoDesc) {
+    counter += 1;
+    if (c.allGood) {
+      doParse.push([`valid combination ${counter}`, () => simpleParsableTest(commandCtor(...c.combination), isGood)]);
+      doParse.push([`valid combination ${counter} w desc`, () => simpleParsableTest(commandCtor(...c.combination, 'mydescription'), isGood)]);
+      cannotParse.push([`valid combination ${counter} w invalid desc`, () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push([`valid combination ${counter} w long desc`, () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
+
+    } else {
+      cannotParse.push(['y', () => simpleNotParsableTest(commandCtor(...c.combination))]);
+      cannotParse.push(['y desc', () => simpleNotParsableTest(commandCtor(...c.combination, 'description'))]);
+      cannotParse.push(['y desc not OK', () => simpleNotParsableTest(commandCtor(...c.combination, 'description?!=-129073'))]);
+      cannotParse.push(['x desc too long', () => simpleNotParsableTest(commandCtor(...c.combination, SIMPLE_LONG_STR))]);
     }
   }
 
@@ -217,6 +275,10 @@ function TESTparseDimension() {
     },
     {
       val: 'end  ',
+      expected: undefined
+    },
+    {
+      val: 'end' + SIMPLE_LONG_STR,
       expected: undefined
     },
   ].concat(getDimensions().flatMap(d => {
