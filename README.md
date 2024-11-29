@@ -47,6 +47,8 @@ them inplace for some minor tweaks (such as enabling `DEBUG` mode, etc.)
 
 **This script does not handle server privileges or permissions, enabling debug mode exposes debug commands to everyone. This scipt is not intended to be used on servers with untrusted clients.**
 
+Debug mode must be explicitly enabled on the source level in the `scripts\bmtp-mc-lib.ts` file, `DEBUG` variable.
+
 For debugging, a few commands are implemented. First, command is interpreted as
 a debug command - if it is a valid debug command, it performs a debug action, if not,
 nothing happens. Next, the very same command is interpreted as a regular command

@@ -1,6 +1,6 @@
 import { McDimension, CmdDesc, optionalArgTypes, getDimensions } from "./bmtp-types"
 import { Player } from "@minecraft/server"
-export let DEBUG = true;
+export let DEBUG = false;
 export function disableDebug() {
   DEBUG = false;
 }
