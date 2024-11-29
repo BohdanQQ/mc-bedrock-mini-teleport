@@ -1,57 +1,122 @@
 import { world, system, Player } from "@minecraft/server";
-import { BmTpCommand, dimString, Teleport, Help, ListCurrentDimension, ListAll, McDimension } from "./bmtp-types";
+import {
+  BmTpCommand, dimString, getDimensions, Teleport, Help, ListCurrentDimension,
+  ListAll, McDimension, RemoveLocation, AddFromCurrentLocation,
+  AddFromCurrentDimension, Coord3, AddGeneralLocation
+} from "./bmtp-types";
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
-import { getDimensions, translateDimension } from "./bmtp-mc-lib";
-import { getDimensionLocations, initialize } from "./bmtp-locations";
+import { DEBUG, disableDebug, translateDimension } from "./bmtp-mc-lib";
+import { debugInspectProperties, getDimensionLocations, initialize, Location, locationFromDb, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
 
 function getLocationListString(d: McDimension): string {
   return Array.from(getDimensionLocations(d).entries())
     .map(([k, v]) => `\u00A7e${k}\u00A7f: \u00A7b${v._coords?.x}\u00A7f, \u00A7b${v._coords?.y}\u00A7f, \u00A7b${v._coords?.z}\u00A7f`).join('\n');
 }
 
-// function getPlayerDimensionLocations(p: Player, ls: BmTpLocationMap): BmTpDimensionLocations {
-//   const dim = translateDimension(p);
-//   let dimensionLocations = ls.get(translateDimension(p));
-//   if (dimensionLocations === undefined) {
-//     dimensionLocations = new Map();
-//   }
-//   return dimensionLocations;
-// }
+function clrPink(s: string) {
+  return `\u00A7d${s}\u00A7f`
+}
+
+function executeCommandAdd(name: string, dim: McDimension, { x, y, z }: Coord3, desc: string | undefined): string {
+  try {
+    const loc = new Location(name, dim, { x, y, z }, desc);
+    loc.commitToDb();
+  } catch (e) {
+    return `Cannot create location ${clrPink(name)}: ${e}`;
+  }
+  return `Created ${clrPink(name)}!`;
+}
 
 function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
   const dim = translateDimension(player);
+  const locations = getDimensionLocations(dim);
+  const report = (s: string) => player.sendMessage(s);
+  const debugReport = (s: string) => {
+    if (DEBUG) { player.sendMessage(`DEBUG: ${s}`) }
+  };
   if (cmd instanceof Help) {
-    player.sendMessage(cmd.getHelpString());
+    report(cmd.getHelpString());
     return;
   } else if (cmd instanceof ListCurrentDimension) {
     const msg = getLocationListString(dim);
-    player.sendMessage(`Available locations in \u00A7d${dimString(dim)}\u00A7f: \n` + msg);
+    report(`Available locations in ${clrPink(dimString(dim))}: \n` + msg);
     return;
   } else if (cmd instanceof ListAll) {
     const msg = getDimensions().map(d => {
-      return `\u00A7d${dimString(d)}\u00A7f:` + getLocationListString(dim);
+      const locs = getLocationListString(d);
+      return locs.length === 0 ? '' : `${clrPink(dimString(d))}: ` + getLocationListString(d);
     }).join('\n');
-    player.sendMessage(`Available locations in all dimensions:\n${msg} \n`);
+    report(`Available locations in all dimensions: \n${msg} \n`);
     return;
   }
   else if (cmd instanceof Teleport) {
-    // const dim = translateDimension(player);
-    // const dimensionLocations = getPlayerDimensionLocations(player, locations);
-    // const dimLookup = dimensionLocations.get(cmd.value);
-    // if (dimLookup === undefined) {
-    //   player.sendMessage("Invalid location " + cmd.value + " for the current dimension: " + dimString(dim));
-    //   return;
-    // }
-    // const { x, y, z } = dimLookup;
-    // player.runCommandAsync(`tp ${x} ${y} ${z}`).then(() => {
-    //   player.sendMessage("Teleported to " + cmd.value);
-    // }).catch((err) => {
-    //   player.sendMessage("Failed to teleport to " + cmd.value);
-    // });
-    player.sendMessage("TP!");
-  } else {
+    if (DEBUG) {
+      if (cmd.name === 'dbg-clear') {
+        NEVERUSE_PURGE_ALL();
+        debugReport('purged');
+      } else if (cmd.name === 'dbg-exit') {
+        disableDebug();
+        debugReport('disabled debug, dbg- commands cannot be used unless they are valid locations');
+      } else if (cmd.name === 'dbg-inspect') {
+        debugReport(`all world dynamic properties recognised by bmtp:\n${debugInspectProperties()}`);
+      }
+    }
+    const found = locations.get(cmd.name);
+    const clrName = clrPink(cmd.name);
+    if (found === undefined) {
+      report(`Invalid location ${clrName} for the current dimension: ${clrPink(dimString(dim))}`);
+      return;
+    } else if (found._coords === undefined) {
+      report(`Location ${clrName} is CORRUPTED.Report this!`);
+      return;
+    }
+    const coords = found._coords;
+    player.runCommandAsync(`tp ${coords.x} ${coords.y} ${coords.z}`).then(() => {
+      report("Teleported to " + clrName);
+    }).catch((err) => {
+      report("Failed to teleport to " + clrName);
+      report(`${err}`);
+    });
+  } else if (cmd instanceof RemoveLocation) {
+    const clrName = clrPink(cmd.name);
+    const location = locationFromDb(cmd.name, cmd.dim);
+    if (location === undefined) {
+      report(`Cannot remove missing location ${clrName} in ${clrPink(dimString(cmd.dim))}`);
+      return;
+    }
+    try {
+      location.remove();
+    } catch (e) {
+      report(`Removal failed: ${e}`);
+      return;
+    }
+    report(`Removed ${clrName}!`);
+  } else if (cmd instanceof AddFromCurrentLocation) {
+    debugReport('AddFromCurrentLocation');
+    report(executeCommandAdd(cmd.name, dim, { x: player.location.x, y: player.location.y, z: player.location.z }, cmd.desc));
+  } else if (cmd instanceof AddFromCurrentDimension) {
+    debugReport('AddFromCurrentDimension');
+    report(executeCommandAdd(cmd.name, dim, { x: cmd.loc.x, y: cmd.loc.x, z: cmd.loc.z }, cmd.desc));
+  } else if (cmd instanceof AddGeneralLocation) {
+    debugReport('AddGeneralLocation');
+    report(executeCommandAdd(cmd.name, cmd.dim, { x: cmd.loc.x, y: cmd.loc.x, z: cmd.loc.z }, cmd.desc));
+  }
+  else {
     player.sendMessage("Unknown command!");
   }
+}
+
+function bindCmdHandler() {
+  world.afterEvents.chatSend.subscribe((eventData) => {
+    const player = eventData.sender;
+    const msg = eventData.message;
+    const cmd = parseBmtpCommand(msg);
+    if (cmd instanceof ParsingError) {
+      player.sendMessage(`\u00A7cError!\u00A7f\n${cmd.msg}`);
+    } else if (!(cmd instanceof SilentError)) {
+      executeBmtpCommand(cmd, player);
+    }
+  });
 }
 
 function bmtpBind(): void {
@@ -63,24 +128,21 @@ function bmtpBind(): void {
     world.sendMessage("No chatSend events found! Beta API has changed.");
     return;
   }
-
   world.sendMessage("Initializing...");
+  if (DEBUG) {
+    world.sendMessage("DEBUG enabled");
+    // allows handling of debug commands even if initialization fails
+    bindCmdHandler();
+  }
   const res = initialize();
   if (res !== undefined) {
     world.sendMessage(res);
     return;
   }
 
-  world.afterEvents.chatSend.subscribe((eventData) => {
-    const player = eventData.sender;
-    const msg = eventData.message;
-    const cmd = parseBmtpCommand(msg);
-    if (cmd instanceof ParsingError) {
-      player.sendMessage(`\u00A7cError!\u00A7f\n${cmd.msg}`);
-    } else if (!(cmd instanceof SilentError)) {
-      executeBmtpCommand(cmd, player);
-    }
-  });
+  if (!DEBUG) {
+    bindCmdHandler();
+  }
   world.sendMessage("BmTp is ready!");
 }
 

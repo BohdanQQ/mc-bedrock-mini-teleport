@@ -1,6 +1,10 @@
 import { world } from "@minecraft/server";
-import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, ID_SEP, DESC_REGEX } from "./bmtp-types"
-import { getDimensions } from "./bmtp-mc-lib";
+import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, ID_SEP, DESC_REGEX, dimString, getDimensions } from "./bmtp-types"
+
+// eslint-disable-next-line @typescript-eslint/no-unused-vars
+function debug(s: string) {
+  world.sendMessage(`DBG: ${s}`);
+}
 
 // hopefully never used
 const LOC_DB_CURRENT_VER = 0;
@@ -112,7 +116,7 @@ function parseLocationCoords(value: string): Coord3 | undefined {
 }
 
 function encodeLocationCoords(value: Coord3): string {
-  return [value.x, value.y, value.z].map(toString).join(COORD_NUM_SEP);
+  return [value.x, value.y, value.z].map(v => v.toString()).join(COORD_NUM_SEP);
 }
 
 function findWorldProperty(id: string): string | undefined {
@@ -128,10 +132,12 @@ function findWorldProperty(id: string): string | undefined {
 }
 
 function setWorldProperty(id: string, val: string): void {
+  debug(`set ${id} to ${val}`);
   world.setDynamicProperty(id, val);
 }
 
 function unsetWorldProperty(id: string) {
+  debug(`unset ${id}`);
   world.setDynamicProperty(id, undefined);
 }
 
@@ -149,13 +155,21 @@ export function locationFromDb(name: string, dimension: McDimension): Location |
   return loc;
 }
 
+function forceReloadIfInconsistent(criterion: unknown, helpStr: string) {
+  if (criterion === undefined) { // MUST always throw if criterion undefined
+    world.sendMessage("ERROR: Inner Location Database is inconistent, reloading!\nCause: " + helpStr);
+    const res = initialize();
+    throw new Error("Inner Location Database is inconistent, reloaded with " + res === undefined ? "no error" : res);
+  }
+}
+
 export class Location {
   _name = ""
   _dimension: McDimension = McDimension.OVERWORLD
   _coords: Coord3 | undefined
   _description: string | undefined
 
-  constructor(name: string, dimension: McDimension, coords = undefined, description = undefined) {
+  constructor(name: string, dimension: McDimension, coords: Coord3 | undefined = undefined, description: string | undefined = undefined) {
     this._name = name;
     const checkedRes = dbValueStringValidate(name, NAME_REGEX, 'name');
     if (typeof checkedRes === 'string' || !checkedRes) {
@@ -185,11 +199,9 @@ export class Location {
   getCoordinates(): Coord3 {
     const locationId = getLocationIdChecked(this._name, this._dimension);
     const property = findWorldProperty(locationId);
-    if (property === undefined) {
-      throw new Error(`Property ${locationId} not found, database malformed`);
-    }
-
-    const retVal = parseLocationCoords(property);
+    forceReloadIfInconsistent(property, `${locationId} not found in getCoordinates`);
+    // safety: forceReloadIfInconsistent throws if property is undefined
+    const retVal = parseLocationCoords(property!);
     if (retVal === undefined) {
       throw new Error(`Cannot parse coordinates from ${property}`);
     }
@@ -209,23 +221,23 @@ export class Location {
   }
 
   commitToDb() {
-    return this.commit_impl(false);
+    this.commit_impl(false);
   }
 
   updateInDb() {
-    return this.commit_impl(true);
+    this.commit_impl(true);
   }
 
   commit_impl(update = false): void {
     const [locId, descId] = this.generateIds();
     if (!update && !isWorldPropertyNew(locId)) {
-      throw new Error("Property ID for location is not new!");
+      throw new Error(`Location name and dimension combination (${this._name} ${dimString(this._dimension)}) already exists!`);
     } else if (!update && !isWorldPropertyNew(descId)) {
-      throw new Error("Property ID for description is not new!");
+      throw new Error(`Location dimension and name combination (${dimString(this._dimension)} ${this._name}) already exists!`);
     }
 
-    if (this._coords === undefined) {
-      throw new Error("Cannot commit location without coordinates");
+    if (this._coords === undefined || this._coords.x === undefined || this._coords.y === undefined || this._coords.z === undefined) {
+      throw new Error("Cannot commit location without (any one of the) coordinates");
     }
     if (this._description === undefined) {
       throw new Error("Nothing to do! Nothing set/updated");
@@ -235,6 +247,8 @@ export class Location {
     if (this._description !== undefined) {
       setWorldProperty(descId, this._description);
     }
+
+    forceReloadIfInconsistent(locations.get(this._dimension)?.set(this._name, this), 'commit_impl');
   }
 
   prepareCoords(newCoords: Coord3) {
@@ -250,6 +264,7 @@ export class Location {
     this.generateIds()
       .filter(i => !isWorldPropertyNew(i))
       .forEach(i => unsetWorldProperty(i));
+    forceReloadIfInconsistent(locations.get(this._dimension)?.delete(this._name), 'remove');
   }
 }
 
@@ -262,11 +277,24 @@ export function getDimensionLocations(dim: McDimension): Map<string, Location> {
   return locations.get(dim)!;
 }
 
+export function NEVERUSE_PURGE_ALL() {
+  world.getDynamicPropertyIds()
+    .filter(i => i.startsWith(BMTP_PREFIX))
+    .forEach(v => unsetWorldProperty(v));
+}
+
+export function debugInspectProperties(): string {
+  return world.getDynamicPropertyIds()
+    .filter(i => i.startsWith(BMTP_PREFIX))
+    .map(v => `${v}  :  ${world.getDynamicProperty(v)}`)
+    .join('\n');
+}
+
 export function initialize(): string | undefined {
   const allIds = world.getDynamicPropertyIds();
   const parsed = allIds
     .filter(i => i.startsWith(BMTP_PREFIX))
-    .map(parseDimNameFromId)
+    .map(v => parseDimNameFromId(v))
     .filter(v => v !== undefined); // filter unrecognized
 
   const errReports = parsed.filter(v => typeof v === 'string');

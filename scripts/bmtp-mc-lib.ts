@@ -1,8 +1,8 @@
-import { McDimension, CmdDesc, ArgType, optionalArgTypes } from "./bmtp-types"
+import { McDimension, CmdDesc, optionalArgTypes, getDimensions } from "./bmtp-types"
 import { Player } from "@minecraft/server"
-
-export function getDimensions(): McDimension[] {
-  return [McDimension.OVERWORLD, McDimension.NETHER, McDimension.END];
+export let DEBUG = true;
+export function disableDebug() {
+  DEBUG = false;
 }
 
 function dimIdString(dim: McDimension): string {

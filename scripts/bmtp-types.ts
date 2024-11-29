@@ -1,3 +1,4 @@
+
 export type Coord3 = {
   x: number,
   y: number,
@@ -9,6 +10,11 @@ export enum McDimension {
   NETHER,
   END
 };
+
+export function getDimensions(): McDimension[] {
+  return [McDimension.OVERWORLD, McDimension.NETHER, McDimension.END];
+}
+
 
 // workaround wrapper to resolve enum clashes with the 'number' type
 export class WrapMcDimension {
@@ -99,7 +105,7 @@ export class Help {
     for (const [_, v] of parseMap) {
       res += getHelpString(v);
     }
-    return res;
+    return res + `\nValid DIMENSION values: ` + getDimensions().map(d => `\u00A76${dimString(d)}\u00A7f`).join(', ') + '(case insensitive)';
   }
 };
 

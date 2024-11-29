@@ -1,4 +1,3 @@
-import { getDimensions } from '../scripts/bmtp-mc-lib';
 import { parseArg } from '../scripts/bmtp-parser';
 import * as types from '../scripts/bmtp-types';
 import { simpleNotParsableTest, simpleParsableTest, commandCtor, testRunner, combinations, goodBad, testInform } from './test-lib';
@@ -87,7 +86,7 @@ function TESTparseRemove() {
     ['space prefix', () => simpleParsableTest(goodDimRemoveCmdStart(' 01234-not-banned'), isRemoveCommand(types.McDimension.END, '01234-not-banned'))]
   ];
 
-  for (const dim of getDimensions()) {
+  for (const dim of types.getDimensions()) {
     let dimStr = types.dimString(dim);
     doParse.push(['dim ' + dimStr, () => simpleParsableTest(goodRemoveCmdStart(dimStr, 'ok'), isRemoveCommand(dim, 'ok'))]);
     dimStr = dimStr.toLowerCase();
@@ -281,7 +280,7 @@ function TESTparseDimension() {
       val: 'end' + SIMPLE_LONG_STR,
       expected: undefined
     },
-  ].concat(getDimensions().flatMap(d => {
+  ].concat(types.getDimensions().flatMap(d => {
     return [{
       val: `${types.dimString(d)}`,
       expected: d
