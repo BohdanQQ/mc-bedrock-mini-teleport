@@ -96,10 +96,10 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     report(executeCommandAdd(cmd.name, dim, { x: player.location.x, y: player.location.y, z: player.location.z }, cmd.desc));
   } else if (cmd instanceof AddFromCurrentDimension) {
     debugReport('AddFromCurrentDimension');
-    report(executeCommandAdd(cmd.name, dim, { x: cmd.loc.x, y: cmd.loc.x, z: cmd.loc.z }, cmd.desc));
+    report(executeCommandAdd(cmd.name, dim, { x: cmd.loc.x, y: cmd.loc.y, z: cmd.loc.z }, cmd.desc));
   } else if (cmd instanceof AddGeneralLocation) {
     debugReport('AddGeneralLocation');
-    report(executeCommandAdd(cmd.name, cmd.dim, { x: cmd.loc.x, y: cmd.loc.x, z: cmd.loc.z }, cmd.desc));
+    report(executeCommandAdd(cmd.name, cmd.dim, { x: cmd.loc.x, y: cmd.loc.y, z: cmd.loc.z }, cmd.desc));
   }
   else {
     player.sendMessage("Unknown command!");
@@ -129,8 +129,8 @@ function bmtpBind(): void {
     return;
   }
   world.sendMessage("Initializing...");
+  world.sendMessage(`DEBUG ${DEBUG ? '' : "is NOT"} enabled`);
   if (DEBUG) {
-    world.sendMessage("DEBUG enabled");
     // allows handling of debug commands even if initialization fails
     bindCmdHandler();
   }
