@@ -105,7 +105,7 @@ export class Help {
     for (const [_, v] of parseMap) {
       res += getHelpString(v);
     }
-    return res + `\nValid DIMENSION values: ` + getDimensions().map(d => `\u00A76${dimString(d)}\u00A7f`).join(', ') + '(case insensitive)';
+    return res + `\nValid DIMENSION values: ` + getDimensions().map(d => `\u00A76${dimString(d)}\u00A7f`).join(', ') + ' (case insensitive)';
   }
 };
 

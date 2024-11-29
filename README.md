@@ -5,34 +5,24 @@
 This is an ad-hoc implementation of a simple teleport command. The script 
 plugin is based on the [minecraft-scripting-samples/starter](https://github.com/microsoft/minecraft-scripting-samples/tree/main/ts-starter) template.
 
-The build step `npm run build` is modified. We parse the `locations.csv` file 
-placed in the root of the project. The file contains CSV rows in the format:
-
-`dimension,name,x,y,z` where `dimension = overworld|nether|end`. The file is 
-expected to contain **NO header**.
+The build step `npm run build` is modified. You can try out this plugin on your
+own using `npm run local-deploy` and enabling the plugin in your world settings.
 
 ## Commands
 
-Start your chat message with `!tp`, followed by a space and either:
+The output of the `!tp help` or `!tp ?` command:
 
-* `?` or `help` for the list of locations for your current dimension
-* `help-all` for the list of all locations for all dimensions
-* anything else is interpreted as a location `name` as specified in the `locations.csv` file
-  * `name` is case-sensitive
-  * if `name` match exists in the `locations.csv` file, you will be teleported to the
-corresponding coordinates
+![help](help-string.png)
 
 ## Limitations
 
-There is no filesystem access for the plugin, location updates are therefore possible only by
+There is no filesystem access for the plugin, location updates are therefore possible only
+by using a `dynamicProperty` (a `key` and `value` pair). The properites utilized by this script
+are tied to the `world` entity. **This plugin therefore provides GLOBAL waypoint system!`.
 
-1. (primary/documented) `npm run build`-ing again
-2. ("just works" / might break anytime) manually editing deployed file
-   * usually single `.js` file in `[BEHAVIOR PACKS ROOT]/starter/scripts` 
-
-Both methods require running the `reload` command (`/reload` for clients).
-
-The lack of "dynamic" presistence also prohibits "client-side" editing of the location list.
+It could be possible to rewrite tiny parts of the script to tie the locations to individual 
+`player` entities. From my experience with migrating MC:BE worlds, I concluded that tying
+data to `player` entities *could* be unstable (cannot be bothered to confirm).
 
 ## Installation
 
@@ -48,7 +38,33 @@ I just drop the contents of the `dist` folder into `serverRoot/development_behav
 
 **The Experimental API used by the plugin may break anytime!**
 
+## Modification
+
+As you will be pasting source code into the server folders, you can also modify 
+them inplace for some minor tweaks (such as enabling `DEBUG` mode, etc.)
+
+### Debug mode
+
+**This script does not handle server privileges or permissions, enabling debug mode exposes debug commands to everyone. This scipt is not intended to be used on servers with untrusted clients.**
+
+For debugging, a few commands are implemented. First, command is interpreted as
+a debug command - if it is a valid debug command, it performs a debug action, if not,
+nothing happens. Next, the very same command is interpreted as a regular command
+(if it overlaps with a valid command). 
+
+(this is because I wanted to make a quick debug mode invisible via the `help` command, 
+the behaviour can be changed extremely easily)
+
+Dynamic properties "reserved" (used) by the plugin: `__BMTP*`, where `*` is any string (not actually but again, cannot care less about specifying every bit as this limitation is IMO good enough)
+
+#### Debug commands
+
+* `!tp dbg-exit` - disables debug mode, no going back!
+* `!tp dbg-inspect` - prints out all dynamic properties recognised/parsed by the script (all the script's storage)
+* `dbg-clear-IKNOWWHATIMDOING` - clears all the script's storage (dynamic properties used by the script - EXTREMELY DESCRUCTIVE OPERATION!)
 
 ## Testing
 
 `npx tsx .\test\test-main.ts`
+
+*who could have expected 700+ tests for a simple parser?*

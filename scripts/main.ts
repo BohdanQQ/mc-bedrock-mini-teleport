@@ -53,7 +53,7 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
   }
   else if (cmd instanceof Teleport) {
     if (DEBUG) {
-      if (cmd.name === 'dbg-clear') {
+      if (cmd.name === 'dbg-clear-IKNOWWHATIMDOING') {
         NEVERUSE_PURGE_ALL();
         debugReport('purged');
       } else if (cmd.name === 'dbg-exit') {
