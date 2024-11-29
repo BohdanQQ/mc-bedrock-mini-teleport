@@ -65,6 +65,12 @@ export const RESERVED_NAMES = [
 export enum ArgType {
   String, Int, OptString, Dimension
 }
+
+const OPTIONAL_ARG_TYPES = new Set([ArgType.OptString]);
+export function optionalArgTypes(): Set<ArgType> {
+  return OPTIONAL_ARG_TYPES;
+}
+
 export interface ArgDesc {
   name: string,
   type: ArgType
@@ -79,16 +85,17 @@ export interface CmdDesc {
 }
 
 // color coding: CMD: golden/yellow, ARGS: light green, description - gray
-
 export function getHelpString(cmd: CmdDesc) {
-  return `${BMTP_COMMAND_HEAD} \u00A76${cmd.alts.join('\u00A7f | \u00A76')}  \u00A7a${cmd.argDesc.map(i => i.name.toUpperCase()).join('  ')}\u00A7f\n    \u00A77${cmd.usageStr}\u00A7f\n`;
+  return `${BMTP_COMMAND_HEAD} \u00A76${cmd.alts.join('\u00A7f | \u00A76')}  \u00A7a${cmd.argDesc.map(i => optionalArgTypes()
+    .has(i.type) ? `[ ${i.name.toUpperCase()} ]` : i.name.toUpperCase()).join('  ')
+    }\u00A7f\n    \u00A77${cmd.usageStr}\u00A7f\n`;
 }
 
 export class ListAll { };
 
 export class Help {
   getHelpString(): string {
-    let res = "Usage: " + BMTP_COMMAND_HEAD + " \u00A76COMMAND\u00A7f  \u00A7aARGUMENTS\u00A7f\n";
+    let res = "Usage: " + BMTP_COMMAND_HEAD + " \u00A76COMMAND\u00A7f  \u00A7aARGS  [ OPTIONAL ARGS ]\u00A7f\n";
     for (const [_, v] of parseMap) {
       res += getHelpString(v);
     }

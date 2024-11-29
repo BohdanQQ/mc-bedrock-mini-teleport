@@ -1,4 +1,4 @@
-import { McDimension, CmdDesc, ArgType } from "./bmtp-types"
+import { McDimension, CmdDesc, ArgType, optionalArgTypes } from "./bmtp-types"
 import { Player } from "@minecraft/server"
 
 export function getDimensions(): McDimension[] {
@@ -24,5 +24,5 @@ export function translateDimension(player: Player): McDimension {
 }
 
 export function getMandatoryArgCount(cmd: CmdDesc): number {
-  return cmd.argDesc.filter(d => ![ArgType.OptString].includes(d.type)).length;
+  return cmd.argDesc.filter(d => !optionalArgTypes().has(d.type)).length;
 }
