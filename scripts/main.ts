@@ -2,7 +2,9 @@ import { world, system, Player } from "@minecraft/server";
 import {
   BmTpCommand, dimString, getDimensions, Teleport, Help, ListCurrentDimension,
   ListAll, McDimension, RemoveLocation, AddFromCurrentLocation,
-  AddFromCurrentDimension, Coord3, AddGeneralLocation
+  AddFromCurrentDimension, Coord3, AddGeneralLocation,
+  UpdateGeneralLocation,
+  ExportAsSCSV
 } from "./bmtp-types";
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
 import { DEBUG, disableDebug, translateDimension } from "./bmtp-mc-lib";
@@ -96,12 +98,27 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     report(executeCommandAdd(cmd.name, dim, { x: player.location.x, y: player.location.y, z: player.location.z }, cmd.desc));
   } else if (cmd instanceof AddFromCurrentDimension) {
     debugReport('AddFromCurrentDimension');
-    report(executeCommandAdd(cmd.name, dim, { x: cmd.loc.x, y: cmd.loc.y, z: cmd.loc.z }, cmd.desc));
+    report(executeCommandAdd(cmd.name, dim, cmd.loc, cmd.desc));
   } else if (cmd instanceof AddGeneralLocation) {
     debugReport('AddGeneralLocation');
-    report(executeCommandAdd(cmd.name, cmd.dim, { x: cmd.loc.x, y: cmd.loc.y, z: cmd.loc.z }, cmd.desc));
-  }
-  else {
+    report(executeCommandAdd(cmd.name, cmd.dim, cmd.loc, cmd.desc));
+  } else if (cmd instanceof UpdateGeneralLocation) {
+    try {
+      const loc = new Location(cmd.name, cmd.dim, cmd.loc, cmd.desc);
+      loc.updateInDb();
+    } catch (e) {
+      report(`Cannot udpate location ${clrPink(cmd.name)}: ${e}`);
+    }
+    report(`Updated ${clrPink(cmd.name)}!`);
+  } else if (cmd instanceof ExportAsSCSV) {
+    const header = `dimension;x;y;z;name;description`;
+    const lines = getDimensions()
+      .map(d => getDimensionLocations(d))
+      .flatMap(mp => Array.from(mp.values()))
+      .map(l => `${dimString(l._dimension)};${l._coords!.x};${l._coords!.y};${l._coords!.z};${l._name};${l._description === undefined ? "" : l._description}`)
+      .join('\n');
+    report(`${header}\n${lines}`);
+  } else {
     player.sendMessage("Unknown command!");
   }
 }

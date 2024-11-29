@@ -202,7 +202,7 @@ export class GeneralLocationOp {
 
 export class AddGeneralLocation extends GeneralLocationOp { };
 export class UpdateGeneralLocation extends GeneralLocationOp { };
-
+export class ExportAsSCSV { };
 export class RemoveLocation {
   constructor(name: string, dimension: McDimension) {
     enforceNotReserved([name]);
@@ -259,6 +259,14 @@ export const parseMap: Map<string, CmdDesc> = new Map([
       argDesc: [],
       usageStr: "lists all locations in this dimension",
       construct: () => new ListCurrentDimension()
+    }
+  ],
+  [
+    ExportAsSCSV.name, {
+      alts: [NAMES.export],
+      argDesc: [],
+      usageStr: "prints semicolon-separated 'CSV' table of all locations",
+      construct: () => new ExportAsSCSV()
     }
   ],
   [
@@ -324,5 +332,5 @@ function sanityCheck() /* of the parseMap (for duplicates) */ {
 
 sanityCheck();
 
-export type BmTpCommand = ListAll | ListCurrentDimension | Help | Teleport | AddGeneralLocation | RemoveLocation | UpdateGeneralLocation | AddFromCurrentDimension | AddFromCurrentLocation;
+export type BmTpCommand = ListAll | ListCurrentDimension | Help | Teleport | AddGeneralLocation | RemoveLocation | UpdateGeneralLocation | AddFromCurrentDimension | AddFromCurrentLocation | ExportAsSCSV;
 
