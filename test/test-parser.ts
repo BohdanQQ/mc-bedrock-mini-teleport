@@ -10,6 +10,19 @@ function getTooLongString(template: string) {
 // combos where this string is used
 const SIMPLE_LONG_STR = getTooLongString('a');
 
+function TESTparseExport() {
+  const doParse = [
+    ["export", () => simpleParsableTest(commandCtor(types.NAMES.export), v => v instanceof types.ExportAsSCSV)],
+    ["export whitespace", () => simpleParsableTest(commandCtor(types.NAMES.export + "  "), v => v instanceof types.ExportAsSCSV)]
+  ];
+  const cannotParse = [
+    ['too many args export', () => simpleNotParsableTest(commandCtor(types.NAMES.export, 'garbage'))],
+    ['too many args export (long)', () => simpleNotParsableTest(commandCtor(types.NAMES.export, SIMPLE_LONG_STR))],
+  ];
+
+  testRunner('export command', doParse, cannotParse);
+}
+
 function TESTparseHelp() {
   const doParse = [
     ["help", () => simpleParsableTest(commandCtor(types.NAMES.help), v => v instanceof types.Help)],
@@ -309,6 +322,7 @@ function TESTparseDimension() {
 }
 
 export function parserSuite() {
+  TESTparseExport();
   TESTparseHelp();
   TESTparseList();
   TESTparseListAll();
