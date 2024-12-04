@@ -1,9 +1,13 @@
 import { world } from "@minecraft/server";
 import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, ID_SEP, DESC_REGEX, dimString, getDimensions } from "./bmtp-types"
+import { DEBUG } from "./bmtp-mc-lib";
 
 // eslint-disable-next-line @typescript-eslint/no-unused-vars
 function debug(s: string) {
-  world.sendMessage(`DBG: ${s}`);
+  if (DEBUG) {
+    world.sendMessage(`DBG: ${s}`);
+  }
+  console.log(`DBG: ${s}`);
 }
 
 // hopefully never used
