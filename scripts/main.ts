@@ -12,7 +12,10 @@ import { debugInspectProperties, getDimensionLocations, initialize, Location, lo
 
 function getLocationListString(d: McDimension): string {
   return Array.from(getDimensionLocations(d).entries())
-    .map(([k, v]) => `\u00A7e${k}\u00A7f: \u00A7b${v._coords?.x}\u00A7f, \u00A7b${v._coords?.y}\u00A7f, \u00A7b${v._coords?.z}\u00A7f`).join('\n');
+    .map(([k, v]) => {
+      const desc = v._description !== undefined ? ` - ${v._description}` : "";
+      return `\u00A7e${k}\u00A7f: \u00A7b${v._coords?.x}\u00A7f, \u00A7b${v._coords?.y}\u00A7f, \u00A7b${v._coords?.z}\u00A7f${desc}`;
+    }).join('\n');
 }
 
 function clrPink(s: string) {
@@ -40,15 +43,15 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     report(cmd.getHelpString());
     return;
   } else if (cmd instanceof ListCurrentDimension) {
-    const msg = getLocationListString(dim);
+    const msg = getLocationListString(dim).trimEnd();
     report(`Available locations in ${clrPink(dimString(dim))}: \n` + msg);
     return;
   } else if (cmd instanceof ListAll) {
     const msg = getDimensions().map(d => {
       const locs = getLocationListString(d);
-      return locs.length === 0 ? '' : `${clrPink(dimString(d))}: ` + getLocationListString(d);
+      return locs.length === 0 ? '' : `${clrPink(dimString(d))}:\n` + getLocationListString(d);
     }).join('\n');
-    report(`Available locations in all dimensions: \n${msg} \n`);
+    report(`Available locations in all dimensions: \n${msg.trimEnd()} \n`);
     return;
   }
   else if (cmd instanceof Teleport) {
