@@ -34,7 +34,7 @@ For more:
 https://learn.microsoft.com/en-us/minecraft/creator/documents/scriptingservers?view=minecraft-bedrock-stable#building-out-your-server-world
 
 As this is purely ad-hoc solution for my personal needs (yes, I did not bother with the internal project renaming, UUIDs, ...), 
-I just drop the contents of the `dist` folder into `serverRoot/development_behavior_packs/starter`.
+I just drop the `behavior_packs/starter/` (created by running `npm run local-deploy`) folder into `serverRoot/development_behavior_packs/starter`.
 
 **The Experimental API used by the plugin may break anytime!**
 
@@ -67,6 +67,11 @@ Dynamic property **keys** "reserved" (used) by the plugin:
 
 ## Testing
 
-`npx tsx .\test\test-main.ts`
+`npm run test`
 
 *who could have expected 700+ tests for a simple parser?*
+
+## Version upgrade reminder
+
+* not only `npm` dependency
+* modify `manifest.json` as well
