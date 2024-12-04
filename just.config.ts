@@ -1,4 +1,4 @@
-import { argv, parallel, series, task, tscTask, nodeExecTask } from "just-scripts";
+import { argv, parallel, series, task, tscTask } from "just-scripts";
 import {
   BundleTaskParameters,
   CopyTaskParameters,
@@ -45,10 +45,9 @@ const mcaddonTaskOptions: ZipTaskParameters = {
 task("lint", coreLint(["scripts/**/*.ts"], argv().fix));
 
 // Build
-task("build-locations", nodeExecTask({ enableTypeScript: true, args: ["gen-locations.ts"] }));
 task("typescript", tscTask());
 task("bundle", bundleTask(bundleTaskOptions));
-task("build", series("build-locations", "typescript", "bundle"));
+task("build", series("typescript", "bundle"));
 
 // Clean
 task("clean-local", cleanTask(DEFAULT_CLEAN_DIRECTORIES));
