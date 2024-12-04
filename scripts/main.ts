@@ -117,7 +117,9 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
       .flatMap(mp => Array.from(mp.values()))
       .map(l => `${dimString(l._dimension)};${l._coords!.x};${l._coords!.y};${l._coords!.z};${l._name};${l._description === undefined ? "" : l._description}`)
       .join('\n');
-    report(`${header}\n${lines}`);
+    const res = `${header}\n${lines}`;
+    report(`${res}\n\nExport also available in server console. (you probably cannot select text anyway :( Thanks, Microsoft )`);
+    console.log(res);
   } else {
     player.sendMessage("Unknown command!");
   }
