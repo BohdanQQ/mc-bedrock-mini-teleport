@@ -37,7 +37,7 @@ As this is purely ad-hoc solution for my personal needs (yes, I did not bother w
 I just drop the `behavior_packs/starter/` folder into `serverRoot/development_behavior_packs/starter` (`manifest.json` is needed) and do the same
 for the `dist` folder's **contents** (created by running `npm run local-deploy`).
 
-Your server's `development_behavior_packs/starter` dir should contain `manifes.json` and `pack_icon.png` files and `debug`, `scripts` folders.
+Your server's `development_behavior_packs/starter` dir should contain `manifest.json` and `pack_icon.png` files and `debug`, `scripts` folders.
 
 **The Experimental API used by the plugin may break anytime!**
 
