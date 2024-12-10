@@ -107,7 +107,14 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     report(executeCommandAdd(cmd.name, cmd.dim, cmd.loc, cmd.desc));
   } else if (cmd instanceof UpdateGeneralLocation) {
     try {
-      const loc = new Location(cmd.name, cmd.dim, cmd.loc, cmd.desc);
+      const loc = locationFromDb(cmd.name, cmd.dim);
+      if (loc === undefined) {
+        throw new Error(`Cannot update location ${cmd.name} in ${cmd.dim} (not found)`)
+      }
+      loc.prepareCoords(cmd.loc);
+      if (cmd.desc !== undefined) {
+        loc.prepareDescription(cmd.desc);
+      }
       loc.updateInDb();
     } catch (e) {
       report(`Cannot udpate location ${clrPink(cmd.name)}: ${e}`);
