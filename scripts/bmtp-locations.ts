@@ -243,9 +243,6 @@ export class Location {
     if (this._coords === undefined || this._coords.x === undefined || this._coords.y === undefined || this._coords.z === undefined) {
       throw new Error("Cannot commit location without (any one of the) coordinates");
     }
-    if (this._description === undefined) {
-      throw new Error("Nothing to do! Nothing set/updated");
-    }
 
     setWorldProperty(locId, encodeLocationCoords(this._coords));
     if (this._description !== undefined) {
