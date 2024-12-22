@@ -147,6 +147,10 @@ function forceReloadIfInconsistent(criterion: unknown, helpStr: string) {
   }
 }
 
+function normalizeCoords(c: Coord3): Coord3 {
+  return { x: Math.floor(c.x), y: Math.floor(c.y), z: Math.floor(c.z) };
+}
+
 export class Location {
   _name = ""
   _dimension: McDimension = McDimension.OVERWORLD
@@ -160,7 +164,11 @@ export class Location {
       throw new Error('Location name is invalid');
     }
     this._dimension = dimension;
-    this._coords = coords;
+    if (coords !== undefined) {
+      this._coords = normalizeCoords(coords);
+    } else {
+      this._coords = coords;
+    }
     this._description = description;
     if (description === undefined) {
       return;
@@ -169,7 +177,7 @@ export class Location {
   }
 
   populateFromDb() {
-    this._coords = this.getCoordinates();
+    this._coords = normalizeCoords(this.getCoordinates());
     this._description = this.getDescription();
   }
 
@@ -234,7 +242,7 @@ export class Location {
   }
 
   prepareCoords(newCoords: Coord3) {
-    this._coords = newCoords;
+    this._coords = normalizeCoords(newCoords);
   }
 
   prepareDescription(newDesc: string) {
