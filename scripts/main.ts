@@ -111,17 +111,17 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     try {
       const loc = locationFromDb(cmd.name, cmd.dim);
       if (loc === undefined) {
-        throw new Error(`Cannot update location ${cmd.name} in ${cmd.dim} (not found)`)
+        throw new Error(`Cannot update location ${cmd.name} in ${dimString(cmd.dim)} (not found)`)
       }
       loc.prepareCoords(cmd.loc);
       if (cmd.desc !== undefined) {
         loc.prepareDescription(cmd.desc);
       }
       loc.updateInDb();
+      report(`Updated ${clrPink(cmd.name)}!`);
     } catch (e) {
       report(`Cannot udpate location ${clrPink(cmd.name)}: ${e}`);
     }
-    report(`Updated ${clrPink(cmd.name)}!`);
   } else if (cmd instanceof ExportAsSCSV) {
     const header = `dimension;x;y;z;name;description`;
     const lines = getDimensions()
