@@ -1,14 +1,8 @@
-import { world } from "@minecraft/server";
 import { Coord3, McDimension, MAX_STR_LEN, NAME_REGEX, COORD_NUM_SEP, ID_SEP, DESC_REGEX, dimString, getDimensions } from "./bmtp-types"
-import { DEBUG } from "./bmtp-mc-lib";
+import { DataProvider, getProvider } from "./bmtp-data-providers"
+import { emergency } from "./bmtp-mc-lib";
 
-// eslint-disable-next-line @typescript-eslint/no-unused-vars
-function debug(s: string) {
-  if (DEBUG) {
-    world.sendMessage(`DBG: ${s}`);
-  }
-  console.log(`DBG: ${s}`);
-}
+let backend: DataProvider | undefined;
 
 // hopefully never used
 const LOC_DB_CURRENT_VER = 0;
@@ -123,30 +117,16 @@ function encodeLocationCoords(value: Coord3): string {
   return [value.x, value.y, value.z].map(v => v.toString()).join(COORD_NUM_SEP);
 }
 
-function findWorldProperty(id: string): string | undefined {
-  const property = world.getDynamicProperty(id);
-  if (property === undefined) {
-    return undefined;
-  }
-  else if (typeof property !== 'string') {
-    throw new Error(`Unexpected property under key ${id}: ${property?.toString()} - ${typeof property}`);
-  }
-
-  return property;
-}
-
 function setWorldProperty(id: string, val: string): void {
-  debug(`set ${id} to ${val}`);
-  world.setDynamicProperty(id, val);
+  backend?.set(id, val);
 }
 
-function unsetWorldProperty(id: string) {
-  debug(`unset ${id}`);
-  world.setDynamicProperty(id, undefined);
+function unsetWorldProperty(id: string): void {
+  backend?.get(id)?.unset();
 }
 
 function isWorldPropertyNew(id: string): boolean {
-  return world.getDynamicPropertyIds().find(t => t === id) === undefined;
+  return backend?.knownKeys().find(t => t === id) === undefined;
 }
 
 export function locationFromDb(name: string, dimension: McDimension): Location | undefined {
@@ -161,7 +141,7 @@ export function locationFromDb(name: string, dimension: McDimension): Location |
 
 function forceReloadIfInconsistent(criterion: unknown, helpStr: string) {
   if (criterion === undefined) { // MUST always throw if criterion undefined
-    world.sendMessage("ERROR: Inner Location Database is inconistent, reloading!\nCause: " + helpStr);
+    emergency("ERROR: Inner Location Database is inconistent, reloading!\nCause: " + helpStr);
     const res = initialize();
     throw new Error("Inner Location Database is inconistent, reloaded with " + res === undefined ? "no error" : res);
   }
@@ -202,10 +182,11 @@ export class Location {
 
   getCoordinates(): Coord3 {
     const locationId = getLocationIdChecked(this._name, this._dimension);
-    const property = findWorldProperty(locationId);
+    const property = backend?.get(locationId);
     forceReloadIfInconsistent(property, `${locationId} not found in getCoordinates`);
+    forceReloadIfInconsistent(property!.value(), `${locationId} location ID has undefined value`);
     // safety: forceReloadIfInconsistent throws if property is undefined
-    const retVal = parseLocationCoords(property!);
+    const retVal = parseLocationCoords(property!.value()!);
     if (retVal === undefined) {
       throw new Error(`Cannot parse coordinates from ${property}`);
     }
@@ -214,7 +195,7 @@ export class Location {
 
   getDescription(): string | undefined {
     const descId = getDescriptionIdChecked(this._name, this._dimension);
-    return findWorldProperty(descId);
+    return backend?.get(descId)?.value();
   }
 
   generateIds(): [string, string] {
@@ -279,20 +260,26 @@ export function getDimensionLocations(dim: McDimension): Map<string, Location> {
 }
 
 export function NEVERUSE_PURGE_ALL() {
-  world.getDynamicPropertyIds()
+  backend?.knownKeys()
     .filter(i => i.startsWith(BMTP_PREFIX))
     .forEach(v => unsetWorldProperty(v));
 }
 
 export function debugInspectProperties(): string {
-  return world.getDynamicPropertyIds()
+  return backend!.knownKeys()
     .filter(i => i.startsWith(BMTP_PREFIX))
-    .map(v => `${v}  :  ${world.getDynamicProperty(v)}`)
+    .map(v => `${v}  :  ${backend?.get(v)?.value()}`)
     .join('\n');
 }
+let intializationCount = 0;
 
 export function initialize(): string | undefined {
-  const allIds = world.getDynamicPropertyIds();
+  backend = getProvider()!;
+  intializationCount += 1;
+  if (intializationCount > 2) {
+    throw new Error("Unrecoverable error");
+  }
+  const allIds = backend.knownKeys();
   const parsed = allIds
     .filter(i => i.startsWith(BMTP_PREFIX))
     .map(v => parseDimNameFromId(v))

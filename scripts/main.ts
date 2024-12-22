@@ -7,8 +7,10 @@ import {
   ExportAsSCSV
 } from "./bmtp-types";
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
-import { DEBUG, disableDebug, translateDimension } from "./bmtp-mc-lib";
+import { getDebug, disableDebug, translateDimension, setLoggers } from "./bmtp-mc-lib";
 import { debugInspectProperties, getDimensionLocations, initialize, Location, locationFromDb, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
+import { initProvider } from "./bmtp-data-providers";
+import { MC_WORLD_PROVIDER } from "./data-providers/mc-world";
 
 function getLocationListString(d: McDimension): string {
   return Array.from(getDimensionLocations(d).entries())
@@ -37,7 +39,7 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
   const locations = getDimensionLocations(dim);
   const report = (s: string) => player.sendMessage(s);
   const debugReport = (s: string) => {
-    if (DEBUG) { player.sendMessage(`DEBUG: ${s}`) }
+    if (getDebug()) { player.sendMessage(`DEBUG: ${s}`) }
   };
   if (cmd instanceof Help) {
     report(cmd.getHelpString());
@@ -55,7 +57,7 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     return;
   }
   else if (cmd instanceof Teleport) {
-    if (DEBUG) {
+    if (getDebug()) {
       if (cmd.name === 'dbg-clear-IKNOWWHATIMDOING') {
         NEVERUSE_PURGE_ALL();
         debugReport('purged');
@@ -158,18 +160,26 @@ function bmtpBind(): void {
     return;
   }
   world.sendMessage("Initializing...");
-  world.sendMessage(`DEBUG ${DEBUG ? '' : "is NOT"} enabled`);
-  if (DEBUG) {
-    // allows handling of debug commands even if initialization fails
-    bindCmdHandler();
+  world.sendMessage(`DEBUG ${getDebug() ? '' : "is NOT"} enabled`);
+  {
+    const debugLogger = (msg: string) => console.log(msg);
+    const emergencyLogger = (msg: string) => world.sendMessage(msg);
+    if (getDebug()) {
+      setLoggers(emergencyLogger, emergencyLogger);
+      // allows handling of debug commands even if initialization fails
+      bindCmdHandler();
+    } else {
+      setLoggers(debugLogger, emergencyLogger);
+    }
   }
+  initProvider(MC_WORLD_PROVIDER);
   const res = initialize();
   if (res !== undefined) {
     world.sendMessage(res);
     return;
   }
 
-  if (!DEBUG) {
+  if (!getDebug()) {
     bindCmdHandler();
   }
   world.sendMessage("BmTp is ready!");

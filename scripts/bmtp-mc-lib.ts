@@ -1,8 +1,38 @@
 import { McDimension, CmdDesc, optionalArgTypes, getDimensions } from "./bmtp-types"
 import { Player } from "@minecraft/server"
-export let DEBUG = false;
+let DEBUG = false;
+
+export function getDebug(): boolean {
+  return DEBUG;
+}
+
 export function disableDebug() {
   DEBUG = false;
+}
+
+let debugLogger = (msg: string) => console.log(msg);
+let emergencyLogger = (msg: string) => console.log(msg);
+
+export function setLoggers(debug: (msg: string) => void, emergency: (msg: string) => void) {
+  debugLogger = debug;
+  emergencyLogger = emergency;
+}
+
+let QUIET = false;
+export function setQuietMode(val: boolean) {
+  QUIET = val;
+}
+
+export function debug(msg: string) {
+  if (DEBUG) {
+    debugLogger(`DBG: ${msg}`);
+  } else if (!QUIET) {
+    console.log(`DBG: ${msg}`);
+  }
+}
+
+export function emergency(msg: string) {
+  emergencyLogger(msg);
 }
 
 function dimIdString(dim: McDimension): string {
