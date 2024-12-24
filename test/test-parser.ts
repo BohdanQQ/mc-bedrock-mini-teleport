@@ -12,8 +12,8 @@ const SIMPLE_LONG_STR = getTooLongString('a');
 
 function TESTparseExport() {
   const doParse = [
-    ["export", () => simpleParsableTest(commandCtor(types.NAMES.export), v => v instanceof types.ExportAsSCSV)],
-    ["export whitespace", () => simpleParsableTest(commandCtor(types.NAMES.export + "  "), v => v instanceof types.ExportAsSCSV)]
+    ["export", () => simpleParsableTest(commandCtor(types.NAMES.export), v => v.cmd.type === types.EXP_CSV)],
+    ["export whitespace", () => simpleParsableTest(commandCtor(types.NAMES.export + "  "), v => v.cmd.type === types.EXP_CSV)]
   ];
   const cannotParse = [
     ['too many args export', () => simpleNotParsableTest(commandCtor(types.NAMES.export, 'garbage'))],
@@ -25,8 +25,8 @@ function TESTparseExport() {
 
 function TESTparseHelp() {
   const doParse = [
-    ["help", () => simpleParsableTest(commandCtor(types.NAMES.help), v => v instanceof types.Help)],
-    ["help?", () => simpleParsableTest(commandCtor(types.NAMES.helpQ), v => v instanceof types.Help)]
+    ["help", () => simpleParsableTest(commandCtor(types.NAMES.help), v => v.cmd.type === types.GET_HLP)],
+    ["help?", () => simpleParsableTest(commandCtor(types.NAMES.helpQ), v => v.cmd.type === types.GET_HLP)]
   ];
   const cannotParse = [
     ['too many args help', () => simpleNotParsableTest(commandCtor(types.NAMES.help, 'garbage'))],
@@ -40,7 +40,7 @@ function TESTparseHelp() {
 
 function TESTparseList() {
   const doParse = [
-    ["list", () => simpleParsableTest(commandCtor(types.NAMES.list), v => v instanceof types.ListCurrentDimension)],
+    ["list", () => simpleParsableTest(commandCtor(types.NAMES.list), v => v.cmd.type === types.LST_DIM)],
   ];
   const cannotParse = [
     ['too many args', () => simpleNotParsableTest(commandCtor(types.NAMES.list, 'garbage'))]
@@ -50,7 +50,7 @@ function TESTparseList() {
 
 function TESTparseListAll() {
   const doParse = [
-    ["list-all", () => simpleParsableTest(commandCtor(types.NAMES.listAll), v => v instanceof types.ListAll)],
+    ["list-all", () => simpleParsableTest(commandCtor(types.NAMES.listAll), v => v.cmd.type === types.LST_ALL)],
   ];
   const cannotParse = [
     ['too many args', () => simpleNotParsableTest(commandCtor(types.NAMES.listAll, 'garbage'))],
@@ -60,7 +60,7 @@ function TESTparseListAll() {
 }
 
 function TESTparseTeleport() {
-  const isTpTo = (n: string) => v => v instanceof types.Teleport && v.name === n;
+  const isTpTo = (n: string) => (v: types.BmTpCommand) => v.cmd.type === types.JUST_TP && v.cmd.val.name === n;
   const doParse = [
     ['basic', () => simpleParsableTest(commandCtor('notbannedname'), isTpTo('notbannedname'))],
     ['dashes', () => simpleParsableTest(commandCtor('not-banned-name'), isTpTo('not-banned-name'))],
@@ -87,7 +87,7 @@ function TESTparseTeleport() {
 }
 
 function TESTparseRemove() {
-  const isRemoveCommand = (d: types.McDimension, n: string) => v => v instanceof types.RemoveLocation && v.dim === d && v.name === n;
+  const isRemoveCommand = (d: types.McDimension, n: string) => (v: types.BmTpCommand) => v.cmd.type === types.REM_GEN && v.cmd.val.dim === d && v.cmd.val.name === n;
   const goodRemoveCmdStart = (...args: string[]) => commandCtor(...[types.NAMES.remove].concat(args));
   const goodDimRemoveCmdStart = (...args: string[]) => goodRemoveCmdStart(...[types.dimString(types.McDimension.END)].concat(args));
   const doParse = [
@@ -123,7 +123,7 @@ function TESTparseRemove() {
 
 // TODO: verify values
 function TESTparseAddSimple() {
-  const isGood = v => v instanceof types.AddFromCurrentLocation;
+  const isGood = (v: types.BmTpCommand) => v.cmd.type === types.ADD_CUR;
   const goodAddCmdStart = (...args: string[]) => commandCtor(...[types.NAMES.addCurrentLoc].concat(args));
   const optionalGen = (testName: string, locName: string, desc: string) => [
     [testName, () => simpleParsableTest(goodAddCmdStart(locName), isGood)],
@@ -155,7 +155,7 @@ function TESTparseAddSimple() {
 }
 
 function TESTparseAddCurrDim() {
-  const isGood = v => v instanceof types.AddFromCurrentDimension;
+  const isGood = v => v.cmd.type === types.ADD_DIM;
   const goodAddCmdStart = (...args: string[]) => commandCtor(...[types.NAMES.addCoords].concat(args));
   const textCasesBasicNoDesc = combinations([goodBad('not-banned12', 'Q?Q?}{"'), goodBad('1', 'a'), goodBad('0', 'c'), goodBad('-1', 'xd')], [{ combination: [types.NAMES.addCoords], allGood: true }]);
   const testCaseTooLong = combinations([goodBad('not-banned', SIMPLE_LONG_STR), goodBad('1', SIMPLE_LONG_STR), goodBad('0', SIMPLE_LONG_STR), goodBad('-1', SIMPLE_LONG_STR)], [{ combination: [types.NAMES.addCoords], allGood: true }]);
@@ -250,12 +250,12 @@ function TESTgeneralLocationOp(isGood: (v: types.BmTpCommand) => boolean, cmd: s
 }
 
 function TESTparseAddCoordsDim() {
-  const isGood = v => v instanceof types.AddGeneralLocation;
+  const isGood = v => v.cmd.type === types.ADD_GEN;
   TESTgeneralLocationOp(isGood, types.NAMES.addDimCoords);
 }
 
 function TESTparseUpdateCoords() {
-  const isGood = v => v instanceof types.UpdateGeneralLocation;
+  const isGood = v => v.cmd.type === types.UPD_GEN;
   TESTgeneralLocationOp(isGood, types.NAMES.update);
 }
 

@@ -4,7 +4,8 @@ import {
   ListAll, McDimension, RemoveLocation, AddFromCurrentLocation,
   AddFromCurrentDimension, Coord3, AddGeneralLocation,
   UpdateGeneralLocation,
-  ExportAsSCSV
+  ExportAsSCSV,
+  GET_HLP
 } from "./bmtp-types";
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
 import { getDebug, disableDebug, translateDimension, setLoggers } from "./bmtp-mc-lib";
@@ -41,8 +42,14 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
   const debugReport = (s: string) => {
     if (getDebug()) { player.sendMessage(`DEBUG: ${s}`) }
   };
+  const icmd = cmd.cmd;
+  switch (icmd.type) {
+    case GET_HLP:
+      report(icmd.val.getHelpString());
+      return
+    // TODO finish
+  }
   if (cmd instanceof Help) {
-    report(cmd.getHelpString());
     return;
   } else if (cmd instanceof ListCurrentDimension) {
     const msg = getLocationListString(dim).trimEnd();

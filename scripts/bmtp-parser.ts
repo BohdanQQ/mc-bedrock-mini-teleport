@@ -3,7 +3,9 @@ import {
   ArgDesc, ArgType, WrapMcDimension, BMTP_COMMAND_HEAD, BmTpCommand,
   Coord3, CmdDesc,
   cmdDescriptions, Teleport, stringToDim,
-  COMMANDS
+  COMMANDS,
+  JUST_TP,
+  cmdCtor
 } from "./bmtp-types";
 import * as lib from "./bmtp-mc-lib"
 
@@ -137,7 +139,8 @@ export function parseBmtpCommand(candidate: string): SilentError | ParsingError 
     // special case, teleport command has no "keyword"
     // !tp locationName is a valid teleport command
     try {
-      return new Teleport(keyword);
+      // TODO handle this in the parser directly...
+      return cmdCtor(JUST_TP, new Teleport(keyword));
     } catch (e) {
       return new ParsingError(`Teleport command error: ${e}`);
     }
