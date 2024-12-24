@@ -15,8 +15,7 @@ export function getDimensions(): McDimension[] {
   return [McDimension.OVERWORLD, McDimension.NETHER, McDimension.END];
 }
 
-
-// workaround wrapper to resolve enum clashes with the 'number' type
+// workaround wrapper to resolve enum clashes with the 'number' type (coordinates VS dimension passing into constructors/parsing)
 export class WrapMcDimension {
   dim: McDimension
   constructor(d: McDimension) {
@@ -75,17 +74,6 @@ export const JUST_TP = "justTp"
 
 export const COMMANDS = [LST_ALL, LST_DIM, ADD_CUR, ADD_DIM, ADD_GEN, UPD_GEN, REM_GEN, EXP_CSV, GET_HLP, JUST_TP] as const;
 export type CommandID = typeof COMMANDS[number];
-
-export function isCmdId(s: string): boolean {
-  return COMMANDS.includes(s as CommandID);
-}
-
-export function getCmdDescription(id: string): CmdDesc | undefined {
-  if (!isCmdId(id)) {
-    return undefined;
-  }
-  return cmdDescriptions[id as CommandID];
-}
 
 export const BMTP_COMMAND_HEAD: string = "!tp";
 export const NAMES = new CmdNames();
