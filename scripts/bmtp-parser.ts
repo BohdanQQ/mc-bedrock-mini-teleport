@@ -125,7 +125,7 @@ function tryParseCommand(spec: CmdDesc, args: string[]): ParsingError | BmTpComm
 }
 
 
-export function parseBmtpCommand(candidate: string): ParsingError | BmTpCommand {
+export function parseBmtpCommand(candidate: string): SilentError | ParsingError | BmTpCommand {
   if (!bmtpIsValidCandidate(candidate)) {
     return new SilentError();
   }
