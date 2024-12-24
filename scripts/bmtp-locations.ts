@@ -18,12 +18,13 @@ const DESCRIPTION_ID_PREFIX = LOC_DB_PREFIX_CURRENT_VER + "DES__";
 const DIM_ID_LEN = 2;
 /** dim to str */
 function getDimensionId(dim: McDimension): string {
-  switch (dim) {
-    case McDimension.OVERWORLD: return "ov"
-    case McDimension.NETHER: return "ne"
-    case McDimension.END: return "ed"
+  // update getDimension if you updated this record
+  const lookup: Record<McDimension, string> = {
+    [McDimension.OVERWORLD]: "ov",
+    [McDimension.NETHER]: "ne",
+    [McDimension.END]: "ed"
   }
-  throw new Error("Dimension not recognised");
+  return lookup[dim];
 }
 
 /** str dim */

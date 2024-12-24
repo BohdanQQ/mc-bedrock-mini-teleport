@@ -25,11 +25,13 @@ export class WrapMcDimension {
 }
 
 export function dimString(dim: McDimension): string {
-  switch (dim) {
-    case McDimension.END: return "End"
-    case McDimension.NETHER: return "Nether"
-    case McDimension.OVERWORLD: return "Overworld"
-  }
+  // update stringToDim if you updated this record
+  let lookup: Record<McDimension, string> = {
+    [McDimension.OVERWORLD]: "Overworld",
+    [McDimension.NETHER]: "Nether",
+    [McDimension.END]: "End"
+  };
+  return lookup[dim];
 }
 
 export function stringToDim(s: string): WrapMcDimension | undefined {
