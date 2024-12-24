@@ -1,20 +1,11 @@
 
 import {
   ArgDesc, ArgType, WrapMcDimension, BMTP_COMMAND_HEAD, BmTpCommand,
-  Coord3, CmdDesc, Help, ListAll, ListCurrentDimension,
+  Coord3, CmdDesc,
   cmdDescriptions, Teleport, stringToDim,
-  getCmdDescription,
-  GET_HLP,
-  LST_DIM,
-  LST_ALL,
-  CommandID,
   COMMANDS
 } from "./bmtp-types";
 import * as lib from "./bmtp-mc-lib"
-
-const LIST_ALL_FLYWEIGHT = new ListAll();
-const LIST_DIM_FLYWEIGHT = new ListCurrentDimension();
-const HELP_FLYWEIGHT = new Help();
 
 export class ParsingError {
   msg = ""
@@ -29,17 +20,8 @@ function bmtpIsValidCandidate(candidate: string): boolean {
   return candidate.startsWith(BMTP_COMMAND_HEAD);
 }
 
-function isCommand(cmd: CmdDesc, candidate: string): boolean {
-  return cmd.alts.find(s => s === candidate) !== undefined;
-}
-
 function validArgCountSpec(spec: CmdDesc, argCount: number) {
   return lib.getMandatoryArgCount(spec) <= argCount && argCount <= spec.argDesc.length
-}
-
-function validArgCount(candidateCmdId: string, argCount: number): boolean {
-  const found = getCmdDescription(candidateCmdId);
-  return found !== undefined && validArgCountSpec(found, argCount);
 }
 
 function validateArguments(cmdSpec: CmdDesc, args: string[]): ParsingError | boolean {
@@ -158,13 +140,6 @@ export function parseBmtpCommand(candidate: string): SilentError | ParsingError 
       return new Teleport(keyword);
     } catch (e) {
       return new ParsingError(`Teleport command error: ${e}`);
-    }
-  }
-  // TODO check if this could just be removed (thus CommandID can remain hidden?)
-  // ignore cmdSpec for a bit in the case of simple commands
-  for (const { s, c } of [{ s: GET_HLP as CommandID, c: HELP_FLYWEIGHT }, { s: LST_DIM as CommandID, c: LIST_DIM_FLYWEIGHT }, { s: LST_ALL as CommandID, c: LIST_ALL_FLYWEIGHT },]) {
-    if (isCommand(cmdDescriptions[s]!, keyword) && validArgCount(s, args.length - 1)) {
-      return c;
     }
   }
 

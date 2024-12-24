@@ -249,6 +249,12 @@ function valueOrUndefined<T>(index: number, source: any[]): (T | undefined) {
   return source[index] as T;
 }
 
+const LIST_ALL_FLYWEIGHT = new ListAll();
+const LIST_DIM_FLYWEIGHT = new ListCurrentDimension();
+const HELP_FLYWEIGHT = new Help();
+const EXPORT_FLYWEIGHT = new ExportAsSCSV();
+
+
 /** Command descriptions for the parser
  * Due to the current parsing implementation, optional args MUST be at the tail
  * and MUST be considered eagerly evaluated 
@@ -266,25 +272,25 @@ export const cmdDescriptions: Record<CommandID, CmdDesc> = {
     alts: [NAMES.listAll],
     argDesc: [],
     usageStr: "lists all locations in all dimensions",
-    construct: () => new ListAll()
+    construct: () => LIST_ALL_FLYWEIGHT
   },
   [GET_HLP]: {
     alts: [NAMES.help, NAMES.helpQ],
     argDesc: [],
     usageStr: "prints out this help",
-    construct: () => new Help()
+    construct: () => HELP_FLYWEIGHT
   },
   [LST_DIM]: {
     alts: [NAMES.list],
     argDesc: [],
     usageStr: "lists all locations in this dimension",
-    construct: () => new ListCurrentDimension()
+    construct: () => LIST_DIM_FLYWEIGHT
   },
   [EXP_CSV]: {
     alts: [NAMES.export],
     argDesc: [],
     usageStr: "prints semicolon-separated 'CSV' table of all locations",
-    construct: () => new ExportAsSCSV()
+    construct: () => EXPORT_FLYWEIGHT
   },
   [ADD_CUR]: {
     alts: [NAMES.addCurrentLoc],
