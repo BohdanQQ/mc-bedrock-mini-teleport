@@ -223,7 +223,6 @@ function valueOrUndefined<T>(index: number, source: any[]): (T | undefined) {
   return source[index] as T;
 }
 
-// TODO : add export command
 /** Command descriptions for the parser
  * Due to the current parsing implementation, optional args MUST be at the tail
  * and MUST be considered eagerly evaluated 
@@ -334,5 +333,9 @@ function sanityCheck() /* of the parseMap (for duplicates) */ {
 
 sanityCheck();
 
+// this could be a discriminated union interface
+/**
+ * interface BmTpCommand = { cmd : { type: 'LSTALL', val: ListAll } | { type: 'LSTCURR', val: ListCurrentDimension } | ... }
+ * but the conversion is somewhat costly and right now the instanceof checks are sufficient, maybe for a more robust system of command parsing?
+ */
 export type BmTpCommand = ListAll | ListCurrentDimension | Help | Teleport | AddGeneralLocation | RemoveLocation | UpdateGeneralLocation | AddFromCurrentDimension | AddFromCurrentLocation | ExportAsSCSV;
-
