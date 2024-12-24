@@ -61,6 +61,32 @@ class CmdNames {
   export = "export";
 };
 
+export const LST_ALL = "listAll"
+export const LST_DIM = "listDim"
+export const ADD_CUR = "addCurrent"
+export const ADD_DIM = "addInDim"
+export const ADD_GEN = "add"
+export const UPD_GEN = "update"
+export const REM_GEN = "remove"
+export const EXP_CSV = "exportcsv"
+export const GET_HLP = "help"
+export const JUST_TP = "justTp"
+
+
+export const COMMANDS = [LST_ALL, LST_DIM, ADD_CUR, ADD_DIM, ADD_GEN, UPD_GEN, REM_GEN, EXP_CSV, GET_HLP, JUST_TP] as const;
+export type CommandID = typeof COMMANDS[number];
+
+export function isCmdId(s: string): boolean {
+  return COMMANDS.includes(s as CommandID);
+}
+
+export function getCmdDescription(id: string): CmdDesc | undefined {
+  if (!isCmdId(id)) {
+    return undefined;
+  }
+  return cmdDescriptions[id as CommandID];
+}
+
 export const BMTP_COMMAND_HEAD: string = "!tp";
 export const NAMES = new CmdNames();
 
@@ -104,8 +130,8 @@ export class ListAll { };
 export class Help {
   getHelpString(): string {
     let res = "Usage: " + BMTP_COMMAND_HEAD + " \u00A76COMMAND\u00A7f  \u00A7aARGS  [ OPTIONAL ARGS ]\u00A7f\n";
-    for (const [_, v] of parseMap) {
-      res += getHelpString(v);
+    for (const k of COMMANDS) {
+      res += getHelpString(cmdDescriptions[k]);
     }
     return res + `\nValid DIMENSION values: ` + getDimensions().map(d => `\u00A76${dimString(d)}\u00A7f`).join(', ') + ' (case insensitive)';
   }
@@ -229,91 +255,73 @@ function valueOrUndefined<T>(index: number, source: any[]): (T | undefined) {
  * (optInt optStr with value "stringValue" fails) 
  * Also, the order of argDesc and the arguments of construct fucntion must correspond 
  */
-export const parseMap: Map<string, CmdDesc> = new Map([
-  [
-    Teleport.name, {
-      alts: [],
-      argDesc: [{ name: "name", type: ArgType.String }],
-      usageStr: "teleports you within your current dimension",
-      construct: ([name]: ParsedArgsArr) => new Teleport(name as string)
-    }
-  ],
-  [
-    ListAll.name, {
-      alts: [NAMES.listAll],
-      argDesc: [],
-      usageStr: "lists all locations in all dimensions",
-      construct: () => new ListAll()
-    }
-  ],
-  [
-    Help.name, {
-      alts: [NAMES.help, NAMES.helpQ],
-      argDesc: [],
-      usageStr: "prints out this help",
-      construct: () => new Help()
-    }
-  ],
-  [
-    ListCurrentDimension.name, {
-      alts: [NAMES.list],
-      argDesc: [],
-      usageStr: "lists all locations in this dimension",
-      construct: () => new ListCurrentDimension()
-    }
-  ],
-  [
-    ExportAsSCSV.name, {
-      alts: [NAMES.export],
-      argDesc: [],
-      usageStr: "prints semicolon-separated 'CSV' table of all locations",
-      construct: () => new ExportAsSCSV()
-    }
-  ],
-  [
-    AddFromCurrentLocation.name, {
-      alts: [NAMES.addCurrentLoc],
-      argDesc: [{ name: "name", type: ArgType.String }, { name: "description", type: ArgType.OptString }],
-      usageStr: "adds your current player location under a name and a description",
-      construct: ([name, ...rest]: ParsedArgsArr) => new AddFromCurrentLocation(name as string, valueOrUndefined(0, rest))
-    }
-  ],
-  [
-    AddFromCurrentDimension.name, {
-      alts: [NAMES.addCoords],
-      argDesc: [{ name: "name", type: ArgType.String }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
-      usageStr: "adds specified location within your current dimension under a name and a description",
-      construct: ([name, loc, ...rest]: ParsedArgsArr) => new AddFromCurrentDimension(name as string, loc as Coord3, valueOrUndefined(0, rest))
-    }
-  ], [
-    AddGeneralLocation.name, {
-      alts: [NAMES.addDimCoords],
-      argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
-      usageStr: "adds specified location within the specified dimension under a name and a description",
-      construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => new AddGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest))
-    }
-  ],
-  [
-    UpdateGeneralLocation.name, {
-      alts: [NAMES.update],
-      argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
-      usageStr: "updates the coordinates and description of a location specified by name and dimension (dimension cannot be changed, instead remove and re-add the entry)",
-      construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => new UpdateGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest))
-    }
-  ],
-  [
-    RemoveLocation.name, {
-      alts: [NAMES.remove],
-      argDesc: [{ name: "dimension", type: ArgType.Dimension }, { name: "name", type: ArgType.String }],
-      usageStr: "removes the specified location within the specified dimension FOREVER",
-      construct: ([dim, name]: ParsedArgsArr) => new RemoveLocation(name as string, (dim as WrapMcDimension).dim)
-    }
-  ]
-]);
+export const cmdDescriptions: Record<CommandID, CmdDesc> = {
+  [JUST_TP]: {
+    alts: [],
+    argDesc: [{ name: "name", type: ArgType.String }],
+    usageStr: "teleports you within your current dimension",
+    construct: ([name]: ParsedArgsArr) => new Teleport(name as string)
+  },
+  [LST_ALL]: {
+    alts: [NAMES.listAll],
+    argDesc: [],
+    usageStr: "lists all locations in all dimensions",
+    construct: () => new ListAll()
+  },
+  [GET_HLP]: {
+    alts: [NAMES.help, NAMES.helpQ],
+    argDesc: [],
+    usageStr: "prints out this help",
+    construct: () => new Help()
+  },
+  [LST_DIM]: {
+    alts: [NAMES.list],
+    argDesc: [],
+    usageStr: "lists all locations in this dimension",
+    construct: () => new ListCurrentDimension()
+  },
+  [EXP_CSV]: {
+    alts: [NAMES.export],
+    argDesc: [],
+    usageStr: "prints semicolon-separated 'CSV' table of all locations",
+    construct: () => new ExportAsSCSV()
+  },
+  [ADD_CUR]: {
+    alts: [NAMES.addCurrentLoc],
+    argDesc: [{ name: "name", type: ArgType.String }, { name: "description", type: ArgType.OptString }],
+    usageStr: "adds your current player location under a name and a description",
+    construct: ([name, ...rest]: ParsedArgsArr) => new AddFromCurrentLocation(name as string, valueOrUndefined(0, rest))
+  },
+  [ADD_DIM]: {
+    alts: [NAMES.addCoords],
+    argDesc: [{ name: "name", type: ArgType.String }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
+    usageStr: "adds specified location within your current dimension under a name and a description",
+    construct: ([name, loc, ...rest]: ParsedArgsArr) => new AddFromCurrentDimension(name as string, loc as Coord3, valueOrUndefined(0, rest))
+  },
+  [ADD_GEN]: {
+    alts: [NAMES.addDimCoords],
+    argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
+    usageStr: "adds specified location within the specified dimension under a name and a description",
+    construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => new AddGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest))
+  },
+  [UPD_GEN]: {
+    alts: [NAMES.update],
+    argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
+    usageStr: "updates the coordinates and description of a location specified by name and dimension (dimension cannot be changed, instead remove and re-add the entry)",
+    construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => new UpdateGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest))
+  },
+  [REM_GEN]: {
+    alts: [NAMES.remove],
+    argDesc: [{ name: "dimension", type: ArgType.Dimension }, { name: "name", type: ArgType.String }],
+    usageStr: "removes the specified location within the specified dimension FOREVER",
+    construct: ([dim, name]: ParsedArgsArr) => new RemoveLocation(name as string, (dim as WrapMcDimension).dim)
+  }
+};
 
 function sanityCheck() /* of the parseMap (for duplicates) */ {
   let nameSet = new Set<String>();
-  for (const val of parseMap.values()) {
+  for (const k of COMMANDS) {
+    const val = cmdDescriptions[k];
     val.alts.forEach(v => {
       if (nameSet.has(v)) {
         throw new Error("Cannot initialize - name conflict in commands: " + v);

@@ -2,7 +2,13 @@
 import {
   ArgDesc, ArgType, WrapMcDimension, BMTP_COMMAND_HEAD, BmTpCommand,
   Coord3, CmdDesc, Help, ListAll, ListCurrentDimension,
-  parseMap, Teleport, stringToDim
+  cmdDescriptions, Teleport, stringToDim,
+  getCmdDescription,
+  GET_HLP,
+  LST_DIM,
+  LST_ALL,
+  CommandID,
+  COMMANDS
 } from "./bmtp-types";
 import * as lib from "./bmtp-mc-lib"
 
@@ -32,7 +38,7 @@ function validArgCountSpec(spec: CmdDesc, argCount: number) {
 }
 
 function validArgCount(candidateCmdId: string, argCount: number): boolean {
-  const found = parseMap.get(candidateCmdId);
+  const found = getCmdDescription(candidateCmdId);
   return found !== undefined && validArgCountSpec(found, argCount);
 }
 
@@ -77,10 +83,10 @@ export function parseArg(val: string, desc: ArgDesc): string | number | WrapMcDi
   }
 }
 
-function getCmdSpec(kw: string): CmdDesc | undefined {
-  for (const element of parseMap.values()) {
-    if (element.alts.includes(kw)) {
-      return element;
+function getCmdSpecForAltNameMatch(altName: string): CmdDesc | undefined {
+  for (const k of COMMANDS) {
+    if (cmdDescriptions[k].alts.includes(altName)) {
+      return cmdDescriptions[k];
     }
   }
   return undefined;
@@ -142,7 +148,7 @@ export function parseBmtpCommand(candidate: string): SilentError | ParsingError 
   }
 
   const keyword = args[0];
-  const cmdSpecRequested = getCmdSpec(keyword);
+  const cmdSpecRequested = getCmdSpecForAltNameMatch(keyword);
   if (cmdSpecRequested === undefined && args.length > 1) {
     return new ParsingError(`Command ${keyword} not found`);
   } else if (cmdSpecRequested === undefined) { // length must be == 1 as < and > is checked above
@@ -154,9 +160,10 @@ export function parseBmtpCommand(candidate: string): SilentError | ParsingError 
       return new ParsingError(`Teleport command error: ${e}`);
     }
   }
+  // TODO check if this could just be removed (thus CommandID can remain hidden?)
   // ignore cmdSpec for a bit in the case of simple commands
-  for (const { s, c } of [{ s: Help.name, c: HELP_FLYWEIGHT }, { s: ListCurrentDimension.name, c: LIST_DIM_FLYWEIGHT }, { s: ListAll.name, c: LIST_ALL_FLYWEIGHT },]) {
-    if (isCommand(parseMap.get(s)!, keyword) && validArgCount(s, args.length - 1)) {
+  for (const { s, c } of [{ s: GET_HLP as CommandID, c: HELP_FLYWEIGHT }, { s: LST_DIM as CommandID, c: LIST_DIM_FLYWEIGHT }, { s: LST_ALL as CommandID, c: LIST_ALL_FLYWEIGHT },]) {
+    if (isCommand(cmdDescriptions[s]!, keyword) && validArgCount(s, args.length - 1)) {
       return c;
     }
   }
