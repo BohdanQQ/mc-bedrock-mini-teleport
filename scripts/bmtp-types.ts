@@ -1,3 +1,4 @@
+import { ChatColor, ColoredString } from "./bmtp-lib";
 
 export type Coord3 = {
   x: number,
@@ -72,7 +73,7 @@ export const GET_HLP = "help"
 export const JUST_TP = "justTp"
 
 
-export const COMMANDS = [LST_ALL, LST_DIM, ADD_CUR, ADD_DIM, ADD_GEN, UPD_GEN, REM_GEN, EXP_CSV, GET_HLP, JUST_TP] as const;
+export const COMMANDS = [JUST_TP, LST_DIM, GET_HLP, LST_ALL, ADD_CUR, ADD_DIM, ADD_GEN, UPD_GEN, REM_GEN, EXP_CSV] as const;
 export type CommandID = typeof COMMANDS[number];
 
 export const BMTP_COMMAND_HEAD: string = "!tp";
@@ -108,20 +109,29 @@ export interface CmdDesc {
 
 // color coding: CMD: golden/yellow, ARGS: light green, description - gray
 export function getHelpString(cmd: CmdDesc) {
-  return `${BMTP_COMMAND_HEAD} \u00A76${cmd.alts.join('\u00A7f | \u00A76')}  \u00A7a${cmd.argDesc.map(i => optionalArgTypes()
+  const text = new ColoredString('', ChatColor.White).text(`${BMTP_COMMAND_HEAD} `)
+    .toggleColor(ChatColor.Gold)
+    .text(cmd.alts.join(`${ChatColor.White} | ${ChatColor.Gold}`))
+    .toggleColor(ChatColor.Green);
+  const args = cmd.argDesc.map(i => optionalArgTypes()
     .has(i.type) ? `[ ${i.name.toUpperCase()} ]` : i.name.toUpperCase()).join('  ')
-    }\u00A7f\n    \u00A77${cmd.usageStr}\u00A7f\n`;
+  text.text(`${cmd.alts.length == 0 ? '' : ' '}${args}`);
+  text.resetColor();
+  text.colored(ChatColor.Gray, `\n    ${cmd.usageStr}\n`);
+  return text.value();
 }
 
 export class ListAll { };
 
 export class Help {
   getHelpString(): string {
-    let res = "Usage: " + BMTP_COMMAND_HEAD + " \u00A76COMMAND\u00A7f  \u00A7aARGS  [ OPTIONAL ARGS ]\u00A7f\n";
+    let res = new ColoredString(' ', ChatColor.White).text('Usage:').text(BMTP_COMMAND_HEAD).colored(ChatColor.Gold, 'COMMAND').colored(ChatColor.Green, 'ARGS [ OPTIONAL ARGS ]\n\n').resetColor();
     for (const k of COMMANDS) {
-      res += getHelpString(cmdDescriptions[k]);
+      res.text(getHelpString(cmdDescriptions[k])).resetColor();
     }
-    return res + `\nValid DIMENSION values: ` + getDimensions().map(d => `\u00A76${dimString(d)}\u00A7f`).join(', ') + ' (case insensitive)';
+    res.text('\nPossible').colored(ChatColor.Green, 'DIMENSION').text('values:').text(getDimensions().map(d => `${ChatColor.Gold}${dimString(d)}${ChatColor.White}`).join(', '))
+      .text('(case insensitive)');
+    return res.value();
   }
 };
 

@@ -1,14 +1,20 @@
 import { world, system, Player } from "@minecraft/server";
 import {
-  BmTpCommand, dimString, getDimensions, Teleport, Help, ListCurrentDimension,
-  ListAll, McDimension, RemoveLocation, AddFromCurrentLocation,
-  AddFromCurrentDimension, Coord3, AddGeneralLocation,
-  UpdateGeneralLocation,
-  ExportAsSCSV,
-  GET_HLP
+  BmTpCommand, dimString, getDimensions, McDimension, Coord3,
+  GET_HLP,
+  LST_ALL,
+  LST_DIM,
+  JUST_TP,
+  REM_GEN,
+  ADD_CUR,
+  ADD_DIM,
+  ADD_GEN,
+  UPD_GEN,
+  EXP_CSV
 } from "./bmtp-types";
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
 import { getDebug, disableDebug, translateDimension, setLoggers } from "./bmtp-mc-lib";
+import { ColoredString, ChatColor } from "./bmtp-lib";
 import { debugInspectProperties, getDimensionLocations, initialize, Location, locationFromDb, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
 import { initProvider } from "./bmtp-data-providers";
 import { MC_WORLD_PROVIDER } from "./data-providers/mc-world";
@@ -17,12 +23,21 @@ function getLocationListString(d: McDimension): string {
   return Array.from(getDimensionLocations(d).entries())
     .map(([k, v]) => {
       const desc = v._description !== undefined ? ` - ${v._description}` : "";
-      return `\u00A7e${k}\u00A7f: \u00A7b${v._coords?.x}\u00A7f, \u00A7b${v._coords?.y}\u00A7f, \u00A7b${v._coords?.z}\u00A7f${desc}`;
+      return new ColoredString('', ChatColor.White)
+        .colored(ChatColor.Yellow, `${k}`)
+        .text(': ')
+        .colored(ChatColor.Aqua, `${v._coords?.x}`)
+        .text(', ')
+        .colored(ChatColor.Aqua, `${v._coords?.y}`)
+        .text(', ')
+        .colored(ChatColor.Aqua, `${v._coords?.z}`)
+        .text(` ${desc}`)
+        .value()
     }).join('\n');
 }
 
 function clrPink(s: string) {
-  return `\u00A7d${s}\u00A7f`
+  return new ColoredString('', ChatColor.White).colored(ChatColor.LightPurple, `${s}`).value();
 }
 
 function executeCommandAdd(name: string, dim: McDimension, { x, y, z }: Coord3, desc: string | undefined): string {
@@ -47,100 +62,119 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     case GET_HLP:
       report(icmd.val.getHelpString());
       return
-    // TODO finish
-  }
-  if (cmd instanceof Help) {
-    return;
-  } else if (cmd instanceof ListCurrentDimension) {
-    const msg = getLocationListString(dim).trimEnd();
-    report(`Available locations in ${clrPink(dimString(dim))}: \n` + msg);
-    return;
-  } else if (cmd instanceof ListAll) {
-    const msg = getDimensions().map(d => {
-      const locs = getLocationListString(d);
-      return locs.length === 0 ? '' : `${clrPink(dimString(d))}:\n` + getLocationListString(d);
-    }).join('\n');
-    report(`Available locations in all dimensions: \n${msg.trimEnd()} \n`);
-    return;
-  }
-  else if (cmd instanceof Teleport) {
-    if (getDebug()) {
-      if (cmd.name === 'dbg-clear-IKNOWWHATIMDOING') {
-        NEVERUSE_PURGE_ALL();
-        debugReport('purged');
-      } else if (cmd.name === 'dbg-exit') {
-        disableDebug();
-        debugReport('disabled debug, dbg- commands cannot be used unless they are valid locations');
-      } else if (cmd.name === 'dbg-inspect') {
-        debugReport(`all world dynamic properties recognised by bmtp:\n${debugInspectProperties()}`);
+    case LST_ALL:
+      {
+        const msg = getDimensions().map(d => {
+          const locs = getLocationListString(d);
+          return locs.length === 0 ? '' : `${clrPink(dimString(d))}:\n` + getLocationListString(d);
+        }).join('\n');
+        report(`Available locations in all dimensions: \n${msg.trimEnd()} \n`);
+        return
       }
-    }
-    const found = locations.get(cmd.name);
-    const clrName = clrPink(cmd.name);
-    if (found === undefined) {
-      report(`Invalid location ${clrName} for the current dimension: ${clrPink(dimString(dim))}`);
-      return;
-    } else if (found._coords === undefined) {
-      report(`Location ${clrName} is CORRUPTED.Report this!`);
+    case LST_DIM: {
+      const msg = getLocationListString(dim).trimEnd();
+      report(`Available locations in ${clrPink(dimString(dim))}: \n` + msg);
       return;
     }
-    const coords = found._coords;
-    player.runCommandAsync(`tp ${coords.x} ${coords.y} ${coords.z}`).then(() => {
-      report("Teleported to " + clrName);
-    }).catch((err) => {
-      report("Failed to teleport to " + clrName);
-      report(`${err}`);
-    });
-  } else if (cmd instanceof RemoveLocation) {
-    const clrName = clrPink(cmd.name);
-    const location = locationFromDb(cmd.name, cmd.dim);
-    if (location === undefined) {
-      report(`Cannot remove missing location ${clrName} in ${clrPink(dimString(cmd.dim))}`);
-      return;
-    }
-    try {
-      location.remove();
-    } catch (e) {
-      report(`Removal failed: ${e}`);
-      return;
-    }
-    report(`Removed ${clrName}!`);
-  } else if (cmd instanceof AddFromCurrentLocation) {
-    debugReport('AddFromCurrentLocation');
-    report(executeCommandAdd(cmd.name, dim, { x: player.location.x, y: player.location.y, z: player.location.z }, cmd.desc));
-  } else if (cmd instanceof AddFromCurrentDimension) {
-    debugReport('AddFromCurrentDimension');
-    report(executeCommandAdd(cmd.name, dim, cmd.loc, cmd.desc));
-  } else if (cmd instanceof AddGeneralLocation) {
-    debugReport('AddGeneralLocation');
-    report(executeCommandAdd(cmd.name, cmd.dim, cmd.loc, cmd.desc));
-  } else if (cmd instanceof UpdateGeneralLocation) {
-    try {
-      const loc = locationFromDb(cmd.name, cmd.dim);
-      if (loc === undefined) {
-        throw new Error(`Cannot update location ${cmd.name} in ${dimString(cmd.dim)} (not found)`)
+    case JUST_TP: {
+      const cmd = icmd.val;
+      if (getDebug()) {
+        if (cmd.name === 'dbg-clear-IKNOWWHATIMDOING') {
+          NEVERUSE_PURGE_ALL();
+          debugReport('purged');
+        } else if (cmd.name === 'dbg-exit') {
+          disableDebug();
+          debugReport('disabled debug, dbg- commands cannot be used unless they are valid locations');
+        } else if (cmd.name === 'dbg-inspect') {
+          debugReport(`all world dynamic properties recognised by bmtp:\n${debugInspectProperties()}`);
+        }
       }
-      loc.prepareCoords(cmd.loc);
-      if (cmd.desc !== undefined) {
-        loc.prepareDescription(cmd.desc);
+      const found = locations.get(cmd.name);
+      const clrName = clrPink(cmd.name);
+      if (found === undefined) {
+        report(`Invalid location ${clrName} for the current dimension: ${clrPink(dimString(dim))}`);
+        return;
+      } else if (found._coords === undefined) {
+        report(`Location ${clrName} is CORRUPTED.Report this!`);
+        return;
       }
-      loc.updateInDb();
-      report(`Updated ${clrPink(cmd.name)}!`);
-    } catch (e) {
-      report(`Cannot udpate location ${clrPink(cmd.name)}: ${e}`);
+      const coords = found._coords;
+      player.runCommandAsync(`tp ${coords.x} ${coords.y} ${coords.z}`).then(() => {
+        report("Teleported to " + clrName);
+      }).catch((err) => {
+        report("Failed to teleport to " + clrName);
+        report(`${err}`);
+      });
+      return;
     }
-  } else if (cmd instanceof ExportAsSCSV) {
-    const header = `dimension;x;y;z;name;description`;
-    const lines = getDimensions()
-      .map(d => getDimensionLocations(d))
-      .flatMap(mp => Array.from(mp.values()))
-      .map(l => `${dimString(l._dimension)};${l._coords!.x};${l._coords!.y};${l._coords!.z};${l._name};${l._description === undefined ? "" : l._description}`)
-      .join('\n');
-    const res = `${header}\n${lines}`;
-    report(`${res}\n\nExport also available in server console. (you probably cannot select text anyway :( Thanks, Microsoft )`);
-    console.log(res);
-  } else {
-    player.sendMessage("Unknown command!");
+    case REM_GEN: {
+      const cmd = icmd.val;
+      const clrName = clrPink(cmd.name);
+      const location = locationFromDb(cmd.name, cmd.dim);
+      if (location === undefined) {
+        report(`Cannot remove missing location ${clrName} in ${clrPink(dimString(cmd.dim))}`);
+        return;
+      }
+      try {
+        location.remove();
+      } catch (e) {
+        report(`Removal failed: ${e}`);
+        return;
+      }
+      report(`Removed ${clrName}!`);
+      return;
+    }
+    case ADD_CUR: {
+      const cmd = icmd.val;
+      debugReport('AddFromCurrentLocation');
+      report(executeCommandAdd(cmd.name, dim, { x: player.location.x, y: player.location.y, z: player.location.z }, cmd.desc));
+      return;
+    }
+    case ADD_DIM: {
+      const cmd = icmd.val;
+      debugReport('AddFromCurrentDimension');
+      report(executeCommandAdd(cmd.name, dim, cmd.loc, cmd.desc));
+      return;
+    }
+    case ADD_GEN: {
+      const cmd = icmd.val;
+      debugReport('AddGeneralLocation');
+      report(executeCommandAdd(cmd.name, cmd.dim, cmd.loc, cmd.desc));
+      return;
+    }
+    case UPD_GEN: {
+      const cmd = icmd.val;
+      try {
+        const loc = locationFromDb(cmd.name, cmd.dim);
+        if (loc === undefined) {
+          throw new Error(`Cannot update location ${cmd.name} in ${dimString(cmd.dim)} (not found)`)
+        }
+        loc.prepareCoords(cmd.loc);
+        if (cmd.desc !== undefined) {
+          loc.prepareDescription(cmd.desc);
+        }
+        loc.updateInDb();
+        report(`Updated ${clrPink(cmd.name)}!`);
+      } catch (e) {
+        report(`Cannot udpate location ${clrPink(cmd.name)}: ${e}`);
+      }
+      return;
+    }
+    case EXP_CSV: {
+      const header = `dimension;x;y;z;name;description`;
+      const lines = getDimensions()
+        .map(d => getDimensionLocations(d))
+        .flatMap(mp => Array.from(mp.values()))
+        .map(l => `${dimString(l._dimension)};${l._coords!.x};${l._coords!.y};${l._coords!.z};${l._name};${l._description === undefined ? "" : l._description}`)
+        .join('\n');
+      const res = `${header}\n${lines}`;
+      report(`${res}\n\nExport also available in server console. (you probably cannot select text anyway :( Thanks, Microsoft )`);
+      console.log(res);
+      return;
+    }
+    default: {
+      report('Unknown command!');
+    }
   }
 }
 
@@ -150,7 +184,7 @@ function bindCmdHandler() {
     const msg = eventData.message;
     const cmd = parseBmtpCommand(msg);
     if (cmd instanceof ParsingError) {
-      player.sendMessage(`\u00A7cError!\u00A7f\n${cmd.msg}`);
+      player.sendMessage(new ColoredString('!', ChatColor.White).colored(ChatColor.Red, 'Error').text(`\n${cmd.msg}`).value());
     } else if (!(cmd instanceof SilentError)) {
       executeBmtpCommand(cmd, player);
     }
