@@ -239,7 +239,7 @@ export class Location {
       setWorldProperty(descId, this._description);
     }
 
-    forceReloadIfInconsistent(locations.get(this._dimension)?.set(this._name, this), 'commit_impl');
+    locations[this._dimension].set(this._name, this);
   }
 
   prepareCoords(newCoords: Coord3) {
@@ -255,7 +255,7 @@ export class Location {
     this.generateIds()
       .filter(i => !isWorldPropertyNew(i))
       .forEach(i => unsetWorldProperty(i));
-    forceReloadIfInconsistent(locations.get(this._dimension)?.delete(this._name), 'remove');
+    locations[this._dimension].delete(this._name);
   }
 
   clone() {
@@ -265,17 +265,20 @@ export class Location {
 
 // haha i hope this is not run on multiple threads with invisible
 // suspension points *_*
-// TODO: record
-const locations = new Map<McDimension, Map<string, Location>>();
+const locations: Record<McDimension, Map<string, Location>> = {
+  [McDimension.OVERWORLD]: new Map(),
+  [McDimension.NETHER]: new Map(),
+  [McDimension.END]: new Map(),
+}
 
 function clearMemoryLocations() {
-  Array.from(locations.keys()).forEach(k => {
-    locations.get(k)!.clear()
-  });
+  for (const dim of getDimensions()) {
+    locations[dim] = new Map();
+  }
 }
 
 export function getDimensionLocations(dim: McDimension): Map<string, Location> {
-  return locations.get(dim)!;
+  return locations[dim];
 }
 
 export function NEVERUSE_PURGE_ALL() {
@@ -313,12 +316,10 @@ export function initialize(): string | undefined {
     return errors;
   }
 
-  for (const dim of getDimensions()) {
-    locations.set(dim, new Map());
-  }
+  clearMemoryLocations();
 
   for (const { name, dim } of parsed.filter(v => typeof v !== 'string')) {
-    const dimMap = locations.get(dim)!;
+    const dimMap = locations[dim];
     try {
       const dataFromDb = NEVERUSE_locationFromDb(name, dim);
       if (dataFromDb === undefined) {
