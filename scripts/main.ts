@@ -156,6 +156,8 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
         loc.prepareCoords(cmd.loc);
         if (cmd.desc !== undefined) {
           loc.prepareDescription(cmd.desc);
+        } else {
+          loc.unsetDescription();
         }
         loc.updateInDb();
         report(`Updated ${clrPink(cmd.name)}!`);

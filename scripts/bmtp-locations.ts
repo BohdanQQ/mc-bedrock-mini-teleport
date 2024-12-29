@@ -237,6 +237,8 @@ export class Location {
     setWorldProperty(locId, encodeLocationCoords(this._coords));
     if (this._description !== undefined) {
       setWorldProperty(descId, this._description);
+    } else if (update) {
+      unsetWorldProperty(descId);
     }
 
     locations[this._dimension].set(this._name, this);
@@ -249,6 +251,10 @@ export class Location {
   prepareDescription(newDesc: string) {
     this.checkDescription(newDesc);
     this._description = newDesc;
+  }
+
+  unsetDescription() {
+    this._description = undefined;
   }
 
   remove() {
