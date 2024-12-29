@@ -3,7 +3,9 @@ import {
   ArgDesc, ArgType, WrapMcDimension, BMTP_COMMAND_HEAD, BmTpCommand,
   Coord3, CmdDesc,
   cmdDescriptions, Teleport, stringToDim,
-  COMMANDS
+  COMMANDS,
+  JUST_TP,
+  cmdCtor
 } from "./bmtp-types";
 import * as lib from "./bmtp-mc-lib"
 
@@ -87,10 +89,10 @@ function tryParseCommand(spec: CmdDesc, args: string[]): ParsingError | BmTpComm
   const numberIdx = semiParsed.findIndex(o => typeof o === 'number');
   if (numberIdx !== -1) {
     // this branch collapses coordinate triplets in arguments (sequence of 3 numbers) into Coord3
-    parsedArgs = (parsedArgs.slice(0, numberIdx));
-    if (parsedArgs.slice(numberIdx).find(v => typeof v === 'number') !== undefined) {
-      return new ParsingError("Unknown command structure (so far only one coordinate triplet allowed)" + `\nUsage: ${spec.usageStr}`);
-    } else if (semiParsed.length <= numberIdx + 2 || typeof semiParsed[numberIdx + 1] !== 'number' || typeof semiParsed[numberIdx + 2] !== 'number') {
+    // right now it only collapses the first occurence
+    // TODO: collapse greedily all coordinate triplets from left to right
+    parsedArgs = (parsedArgs.slice(0, numberIdx)); // elements up to (excluding) the first number inthe sequence of args
+    if (semiParsed.length <= numberIdx + 2 || typeof semiParsed[numberIdx + 1] !== 'number' || typeof semiParsed[numberIdx + 2] !== 'number') {
       return new ParsingError("Inconsistent parsing, expected coordinate triplet." + `\nUsage: ${spec.usageStr}`);
     }
     typedParsedArgs = parsedArgs as (string | Coord3 | WrapMcDimension)[];
@@ -106,6 +108,7 @@ function tryParseCommand(spec: CmdDesc, args: string[]): ParsingError | BmTpComm
   }
 
   try {
+    // the result becomes the sliced version of arguments + [ optionaly coordinates - previous branch ] + the rest of the arguments 
     return spec.construct(typedParsedArgs.concat((semiParsed.slice(numberIdx + 3)) as (string | WrapMcDimension)[]));
   } catch (e) {
     return new ParsingError(`Cannot construct command ${spec.alts[0]}: ${e}` + `\nUsage: ${spec.usageStr}`);
@@ -137,7 +140,8 @@ export function parseBmtpCommand(candidate: string): SilentError | ParsingError 
     // special case, teleport command has no "keyword"
     // !tp locationName is a valid teleport command
     try {
-      return new Teleport(keyword);
+      // TODO handle this in the parser directly...
+      return cmdCtor(JUST_TP, new Teleport(keyword));
     } catch (e) {
       return new ParsingError(`Teleport command error: ${e}`);
     }

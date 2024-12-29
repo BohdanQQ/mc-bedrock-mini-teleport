@@ -1,3 +1,4 @@
+import { ChatColor, ColoredString } from "./bmtp-lib";
 
 export type Coord3 = {
   x: number,
@@ -72,7 +73,7 @@ export const GET_HLP = "help"
 export const JUST_TP = "justTp"
 
 
-export const COMMANDS = [LST_ALL, LST_DIM, ADD_CUR, ADD_DIM, ADD_GEN, UPD_GEN, REM_GEN, EXP_CSV, GET_HLP, JUST_TP] as const;
+export const COMMANDS = [JUST_TP, LST_DIM, GET_HLP, LST_ALL, ADD_CUR, ADD_DIM, ADD_GEN, UPD_GEN, REM_GEN, EXP_CSV] as const;
 export type CommandID = typeof COMMANDS[number];
 
 export const BMTP_COMMAND_HEAD: string = "!tp";
@@ -108,20 +109,29 @@ export interface CmdDesc {
 
 // color coding: CMD: golden/yellow, ARGS: light green, description - gray
 export function getHelpString(cmd: CmdDesc) {
-  return `${BMTP_COMMAND_HEAD} \u00A76${cmd.alts.join('\u00A7f | \u00A76')}  \u00A7a${cmd.argDesc.map(i => optionalArgTypes()
+  const text = new ColoredString('', ChatColor.White).text(`${BMTP_COMMAND_HEAD} `)
+    .toggleColor(ChatColor.Gold)
+    .text(cmd.alts.join(`${ChatColor.White} | ${ChatColor.Gold}`))
+    .toggleColor(ChatColor.Green);
+  const args = cmd.argDesc.map(i => optionalArgTypes()
     .has(i.type) ? `[ ${i.name.toUpperCase()} ]` : i.name.toUpperCase()).join('  ')
-    }\u00A7f\n    \u00A77${cmd.usageStr}\u00A7f\n`;
+  text.text(`${cmd.alts.length == 0 ? '' : ' '}${args}`);
+  text.resetColor();
+  text.colored(ChatColor.Gray, `\n    ${cmd.usageStr}\n`);
+  return text.value();
 }
 
 export class ListAll { };
 
 export class Help {
   getHelpString(): string {
-    let res = "Usage: " + BMTP_COMMAND_HEAD + " \u00A76COMMAND\u00A7f  \u00A7aARGS  [ OPTIONAL ARGS ]\u00A7f\n";
+    let res = new ColoredString(' ', ChatColor.White).text('Usage:').text(BMTP_COMMAND_HEAD).colored(ChatColor.Gold, 'COMMAND').colored(ChatColor.Green, 'ARGS [ OPTIONAL ARGS ]\n\n').resetColor();
     for (const k of COMMANDS) {
-      res += getHelpString(cmdDescriptions[k]);
+      res.text(getHelpString(cmdDescriptions[k])).resetColor();
     }
-    return res + `\nValid DIMENSION values: ` + getDimensions().map(d => `\u00A76${dimString(d)}\u00A7f`).join(', ') + ' (case insensitive)';
+    res.text('\nPossible').colored(ChatColor.Green, 'DIMENSION').text('values:').text(getDimensions().map(d => `${ChatColor.Gold}${dimString(d)}${ChatColor.White}`).join(', '))
+      .text('(case insensitive)');
+    return res.value();
   }
 };
 
@@ -186,34 +196,20 @@ export class AddFromCurrentLocation {
   desc: string | undefined = undefined;
 };
 
-export class AddFromCurrentDimension {
+export class AddFromCurrentDimension extends AddFromCurrentLocation {
   constructor(name: string, location: Coord3, description: string | undefined) {
-    enforceNotReserved([name]);
-    enforceLocationNameValid(name);
-    enforceDescriptionValid(description);
-    this.name = name;
+    super(name, description);
     this.loc = location;
-    this.desc = description;
   }
-  name: string = "";
   loc: Coord3 = { x: 0, y: 0, z: 0 };
-  desc: string | undefined = undefined;
 };
 
-export class GeneralLocationOp {
+export class GeneralLocationOp extends AddFromCurrentDimension {
   constructor(name: string, location: Coord3, dimension: McDimension, description: string | undefined) {
-    enforceNotReserved([name]);
-    enforceLocationNameValid(name);
-    enforceDescriptionValid(description);
-    this.name = name;
-    this.loc = location;
+    super(name, location, description);
     this.dim = dimension;
-    this.desc = description;
   }
-  name = "";
-  loc: Coord3 = { x: 0, y: 0, z: 0 };
   dim = McDimension.OVERWORLD;
-  desc: string | undefined = undefined;
 };
 
 export class AddGeneralLocation extends GeneralLocationOp { };
@@ -237,10 +233,39 @@ function valueOrUndefined<T>(index: number, source: any[]): (T | undefined) {
   return source[index] as T;
 }
 
-const LIST_ALL_FLYWEIGHT = new ListAll();
-const LIST_DIM_FLYWEIGHT = new ListCurrentDimension();
-const HELP_FLYWEIGHT = new Help();
-const EXPORT_FLYWEIGHT = new ExportAsSCSV();
+type CmdValueType = AddFromCurrentDimension | AddFromCurrentLocation | RemoveLocation | ListAll | ListCurrentDimension | Help | AddGeneralLocation | UpdateGeneralLocation | ListCurrentDimension;
+export function cmdCtor(cmdId: CommandID, cmd: CmdValueType): BmTpCommand {
+  // havent found better way to keep the syntax clutter from construction of tagged unions away from actual code
+  switch (cmdId) {
+    case LST_ALL:
+      return { cmd: { type: LST_ALL, val: cmd as ListAll } };
+    case LST_DIM:
+      return { cmd: { type: LST_DIM, val: cmd as ListCurrentDimension } };
+    case GET_HLP:
+      return { cmd: { type: GET_HLP, val: cmd as Help } };
+    case ADD_CUR:
+      return { cmd: { type: ADD_CUR, val: cmd as AddFromCurrentLocation } };
+    case ADD_DIM:
+      return { cmd: { type: ADD_DIM, val: cmd as AddFromCurrentDimension } };
+    case ADD_GEN:
+      return { cmd: { type: ADD_GEN, val: cmd as AddGeneralLocation } };
+    case UPD_GEN:
+      return { cmd: { type: UPD_GEN, val: cmd as UpdateGeneralLocation } };
+    case REM_GEN:
+      return { cmd: { type: REM_GEN, val: cmd as RemoveLocation } };
+    case EXP_CSV:
+      return { cmd: { type: EXP_CSV, val: cmd as ExportAsSCSV } };
+    case JUST_TP:
+      return { cmd: { type: JUST_TP, val: cmd as Teleport } };
+    default:
+      throw new Error(`Unknown command ID: ${cmdId}`);
+  }
+}
+
+const LIST_ALL_FLYWEIGHT = cmdCtor(LST_ALL, new ListAll());
+const LIST_DIM_FLYWEIGHT = cmdCtor(LST_DIM, new ListCurrentDimension());
+const HELP_FLYWEIGHT = cmdCtor(GET_HLP, new Help());
+const EXPORT_FLYWEIGHT = cmdCtor(EXP_CSV, new ExportAsSCSV());
 
 
 /** Command descriptions for the parser
@@ -254,7 +279,7 @@ export const cmdDescriptions: Record<CommandID, CmdDesc> = {
     alts: [],
     argDesc: [{ name: "name", type: ArgType.String }],
     usageStr: "teleports you within your current dimension",
-    construct: ([name]: ParsedArgsArr) => new Teleport(name as string)
+    construct: ([name]: ParsedArgsArr) => cmdCtor(JUST_TP, new Teleport(name as string))
   },
   [LST_ALL]: {
     alts: [NAMES.listAll],
@@ -284,31 +309,31 @@ export const cmdDescriptions: Record<CommandID, CmdDesc> = {
     alts: [NAMES.addCurrentLoc],
     argDesc: [{ name: "name", type: ArgType.String }, { name: "description", type: ArgType.OptString }],
     usageStr: "adds your current player location under a name and a description",
-    construct: ([name, ...rest]: ParsedArgsArr) => new AddFromCurrentLocation(name as string, valueOrUndefined(0, rest))
+    construct: ([name, ...rest]: ParsedArgsArr) => cmdCtor(ADD_CUR, new AddFromCurrentLocation(name as string, valueOrUndefined(0, rest)))
   },
   [ADD_DIM]: {
     alts: [NAMES.addCoords],
     argDesc: [{ name: "name", type: ArgType.String }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
     usageStr: "adds specified location within your current dimension under a name and a description",
-    construct: ([name, loc, ...rest]: ParsedArgsArr) => new AddFromCurrentDimension(name as string, loc as Coord3, valueOrUndefined(0, rest))
+    construct: ([name, loc, ...rest]: ParsedArgsArr) => cmdCtor(ADD_DIM, new AddFromCurrentDimension(name as string, loc as Coord3, valueOrUndefined(0, rest)))
   },
   [ADD_GEN]: {
     alts: [NAMES.addDimCoords],
     argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
     usageStr: "adds specified location within the specified dimension under a name and a description",
-    construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => new AddGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest))
+    construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => cmdCtor(ADD_GEN, new AddGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest)))
   },
   [UPD_GEN]: {
     alts: [NAMES.update],
     argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
     usageStr: "updates the coordinates and description of a location specified by name and dimension (dimension cannot be changed, instead remove and re-add the entry)",
-    construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => new UpdateGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest))
+    construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => cmdCtor(UPD_GEN, new UpdateGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest)))
   },
   [REM_GEN]: {
     alts: [NAMES.remove],
     argDesc: [{ name: "dimension", type: ArgType.Dimension }, { name: "name", type: ArgType.String }],
     usageStr: "removes the specified location within the specified dimension FOREVER",
-    construct: ([dim, name]: ParsedArgsArr) => new RemoveLocation(name as string, (dim as WrapMcDimension).dim)
+    construct: ([dim, name]: ParsedArgsArr) => cmdCtor(REM_GEN, new RemoveLocation(name as string, (dim as WrapMcDimension).dim))
   }
 };
 
@@ -335,9 +360,16 @@ function sanityCheck() /* of the parseMap (for duplicates) */ {
 
 sanityCheck();
 
-// this could be a discriminated union interface
-/**
- * interface BmTpCommand = { cmd : { type: 'LSTALL', val: ListAll } | { type: 'LSTCURR', val: ListCurrentDimension } | ... }
- * but the conversion is somewhat costly and right now the instanceof checks are sufficient, maybe for a more robust system of command parsing?
- */
-export type BmTpCommand = ListAll | ListCurrentDimension | Help | Teleport | AddGeneralLocation | RemoveLocation | UpdateGeneralLocation | AddFromCurrentDimension | AddFromCurrentLocation | ExportAsSCSV;
+export interface BmTpCommand {
+  cmd:
+  { type: typeof LST_ALL, val: ListAll } |
+  { type: typeof LST_DIM, val: ListCurrentDimension } |
+  { type: typeof GET_HLP, val: Help } |
+  { type: typeof ADD_CUR, val: AddFromCurrentLocation } |
+  { type: typeof ADD_DIM, val: AddFromCurrentDimension } |
+  { type: typeof ADD_GEN, val: AddGeneralLocation } |
+  { type: typeof UPD_GEN, val: UpdateGeneralLocation } |
+  { type: typeof REM_GEN, val: RemoveLocation } |
+  { type: typeof EXP_CSV, val: ExportAsSCSV } |
+  { type: typeof JUST_TP, val: Teleport }
+};
