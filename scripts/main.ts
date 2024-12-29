@@ -17,7 +17,7 @@ import { getDebug, disableDebug, translateDimension, setLoggers } from "./bmtp-m
 import { ColoredString, ChatColor } from "./bmtp-lib";
 import { debugInspectProperties, getDimensionLocations, initialize, Location, locationFromDb, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
 import { initProvider } from "./bmtp-data-providers";
-import { MC_WORLD_PROVIDER } from "./data-providers/mc-world";
+import { MC_BACKEND } from "./data-stores/mc-world";
 
 function getLocationListString(d: McDimension): string {
   return Array.from(getDimensionLocations(d).entries())
@@ -213,7 +213,7 @@ function bmtpBind(): void {
       setLoggers(debugLogger, emergencyLogger);
     }
   }
-  initProvider(MC_WORLD_PROVIDER);
+  initProvider(MC_BACKEND);
   const res = initialize();
   if (res !== undefined) {
     world.sendMessage(res);
