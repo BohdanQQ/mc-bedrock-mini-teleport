@@ -15,7 +15,7 @@ import {
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
 import { getDebug, disableDebug, translateDimension, setLoggers } from "./bmtp-mc-lib";
 import { ColoredString, ChatColor } from "./bmtp-lib";
-import { debugInspectProperties, getDimensionLocations, initialize, Location, locationFromDb, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
+import { debugInspectProperties, getDimensionLocations, initialize, Location, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
 import { initProvider } from "./bmtp-data-providers";
 import { MC_BACKEND } from "./data-stores/mc-world";
 
@@ -52,7 +52,7 @@ function executeCommandAdd(name: string, dim: McDimension, { x, y, z }: Coord3, 
 
 function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
   const dim = translateDimension(player);
-  const locations = getDimensionLocations(dim);
+  const playerDimLocations = getDimensionLocations(dim);
   const report = (s: string) => player.sendMessage(s);
   const debugReport = (s: string) => {
     if (getDebug()) { player.sendMessage(`DEBUG: ${s}`) }
@@ -89,7 +89,7 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
           debugReport(`all world dynamic properties recognised by bmtp:\n${debugInspectProperties()}`);
         }
       }
-      const found = locations.get(cmd.name);
+      const found = playerDimLocations.get(cmd.name);
       const clrName = clrPink(cmd.name);
       if (found === undefined) {
         report(`Invalid location ${clrName} for the current dimension: ${clrPink(dimString(dim))}`);
@@ -110,7 +110,7 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     case REM_GEN: {
       const cmd = icmd.val;
       const clrName = clrPink(cmd.name);
-      const location = locationFromDb(cmd.name, cmd.dim);
+      const location = getDimensionLocations(cmd.dim).get(cmd.name);
       if (location === undefined) {
         report(`Cannot remove missing location ${clrName} in ${clrPink(dimString(cmd.dim))}`);
         return;
@@ -145,7 +145,11 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     case UPD_GEN: {
       const cmd = icmd.val;
       try {
-        const loc = locationFromDb(cmd.name, cmd.dim);
+        // clone location to prevent updating the data inside the dimensionLocations
+        // (if the prepareCoords / prepareDescription / updateInDb fails, the 
+        // global observable state of the location db [in world an memory!] will 
+        // not change)
+        const loc = getDimensionLocations(cmd.dim).get(cmd.name)?.clone();
         if (loc === undefined) {
           throw new Error(`Cannot update location ${cmd.name} in ${dimString(cmd.dim)} (not found)`)
         }

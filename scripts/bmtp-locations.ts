@@ -130,7 +130,7 @@ function isWorldPropertyNew(id: string): boolean {
   return backend?.knownKeys().find(t => t === id) === undefined;
 }
 
-export function locationFromDb(name: string, dimension: McDimension): Location | undefined {
+export function NEVERUSE_locationFromDb(name: string, dimension: McDimension): Location | undefined {
   if (isWorldPropertyNew(getLocationIdChecked(name, dimension))) {
     return undefined;
   }
@@ -257,12 +257,22 @@ export class Location {
       .forEach(i => unsetWorldProperty(i));
     forceReloadIfInconsistent(locations.get(this._dimension)?.delete(this._name), 'remove');
   }
+
+  clone() {
+    return new Location(this._name, this._dimension, this._coords, this._description);
+  }
 }
 
 // haha i hope this is not run on multiple threads with invisible
 // suspension points *_*
+// TODO: record
 const locations = new Map<McDimension, Map<string, Location>>();
 
+function clearMemoryLocations() {
+  Array.from(locations.keys()).forEach(k => {
+    locations.get(k)!.clear()
+  });
+}
 
 export function getDimensionLocations(dim: McDimension): Map<string, Location> {
   return locations.get(dim)!;
@@ -272,6 +282,7 @@ export function NEVERUSE_PURGE_ALL() {
   backend?.knownKeys()
     .filter(i => i.startsWith(BMTP_PREFIX))
     .forEach(v => unsetWorldProperty(v));
+  clearMemoryLocations();
 }
 
 export function debugInspectProperties(): string {
@@ -285,7 +296,9 @@ let intializationCount = 0;
 export function initialize(): string | undefined {
   backend = getProvider()!;
   intializationCount += 1;
-  if (intializationCount > 2) {
+  if (intializationCount > 1) {
+    // should act like this in order to disallow any further manipulation
+    clearMemoryLocations();
     throw new Error("Unrecoverable error");
   }
   const allIds = backend.knownKeys();
@@ -307,7 +320,7 @@ export function initialize(): string | undefined {
   for (const { name, dim } of parsed.filter(v => typeof v !== 'string')) {
     const dimMap = locations.get(dim)!;
     try {
-      const dataFromDb = locationFromDb(name, dim);
+      const dataFromDb = NEVERUSE_locationFromDb(name, dim);
       if (dataFromDb === undefined) {
         throw new Error("cannot parse locaiton from the world property database");
       }
@@ -317,6 +330,7 @@ export function initialize(): string | undefined {
       return errors;
     }
   }
-
+  // for each successful init, reset the counter of failures
+  intializationCount = 0;
   return undefined;
 }

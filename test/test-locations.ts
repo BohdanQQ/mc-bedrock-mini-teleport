@@ -1,12 +1,13 @@
 import { testRunner } from './test-lib';
 import { initProvider } from '../scripts/bmtp-data-providers';
-import { initialize, Location, locationFromDb } from '../scripts/bmtp-locations';
+import { getDimensionLocations, initialize, Location, NEVERUSE_locationFromDb as locationFromDb, NEVERUSE_PURGE_ALL } from '../scripts/bmtp-locations';
 import { resetData, TEST_BACKEND } from '../scripts/data-stores/test';
 import { Coord3, McDimension } from '../scripts/bmtp-types';
 import { setQuietMode } from '../scripts/bmtp-mc-lib';
 
 function beforeEveryTest() {
   resetData();
+  NEVERUSE_PURGE_ALL();
 }
 
 function makeTest(fn: () => void) {
@@ -20,15 +21,15 @@ function coordsEq(c: Coord3, c2: Coord3): boolean {
   return c.x === c2.x && c.y === c2.y && c.z === c2.z;
 }
 
-function updateAndRetrieve(n: string, d: McDimension, c: Coord3, desc: undefined | string) {
+function updateAndRetrieveCaseFactory(n: string, d: McDimension, c: Coord3, desc: undefined | string, valGetter: (n: string, d: McDimension) => undefined | Location) {
   return () => {
     try {
       insertAndRetrieveCase(n, d, c, desc)();
-      console.log("Inconsistent, expected duplicate value to be updated, instead normal commit succeeded");
+      console.log("Warning, expected duplicate value to be updated, instead normal commit succeeded");
       return false;
     } catch {
       new Location(n, d, c, desc).updateInDb();
-      const val = locationFromDb(n, d);
+      const val = valGetter(n, d);
       if (val === undefined || val._coords === undefined) {
         return false;
       }
@@ -37,10 +38,17 @@ function updateAndRetrieve(n: string, d: McDimension, c: Coord3, desc: undefined
   }
 }
 
-function insertAndRetrieveCase(n: string, d: McDimension, c: Coord3, desc: undefined | string) {
+function updateAndRetrieveCase(n: string, d: McDimension, c: Coord3, desc: undefined | string) {
+  return updateAndRetrieveCaseFactory(n, d, c, desc, locationFromDb);
+}
+function updateAndRetrieveCoherentCase(n: string, d: McDimension, c: Coord3, desc: undefined | string) {
+  return updateAndRetrieveCaseFactory(n, d, c, desc, (a, b) => getDimensionLocations(b).get(a));
+}
+
+function insertAndRetrieveCaseFactory(n: string, d: McDimension, c: Coord3, desc: undefined | string, valGetter: (n: string, d: McDimension) => undefined | Location) {
   return () => {
     new Location(n, d, c, desc).commitToDb();
-    const val = locationFromDb(n, d);
+    const val = valGetter(n, d);
     if (val === undefined || val._coords === undefined) {
       return false;
     }
@@ -48,65 +56,135 @@ function insertAndRetrieveCase(n: string, d: McDimension, c: Coord3, desc: undef
   }
 }
 
+function insertAndRetrieveCase(n: string, d: McDimension, c: Coord3, desc: undefined | string) {
+  return insertAndRetrieveCaseFactory(n, d, c, desc, locationFromDb);
+}
+
+function insertAndRetrieveCoherentCase(n: string, d: McDimension, c: Coord3, desc: undefined | string) {
+  return insertAndRetrieveCaseFactory(n, d, c, desc, (a, b) => getDimensionLocations(b).get(a));
+}
+
+type CaseGenT = (n: string, d: McDimension, c: Coord3, desc: undefined | string) => (() => boolean);
+
+function insertTestBodyGen(name: string, caseFn: CaseGenT) {
+  return () => {
+    const ok = [
+      ["just commit", () => {
+        new Location("xd", McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }).commitToDb();
+        return true
+      }],
+      ["commited info can be recalled (no desc)", okTest(caseFn("xd2", McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, undefined))],
+      ["commited info can be recalled", okTest(caseFn("xd3", McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, "my-desc"))],
+    ];
+    testRunner(name, ok, []);
+  }
+}
+
 function TESTinsert() {
-  const ok = [
-    ["just commit", () => {
-      new Location("xd", McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }).commitToDb();
-      return true
-    }],
-    ["commited info can be recalled (no desc)", insertAndRetrieveCase("xd2", McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, undefined)],
-    ["commited info can be recalled", insertAndRetrieveCase("xd3", McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, "my-desc")],
-  ];
-  testRunner('commit', ok, []);
+  insertTestBodyGen('commit-db', insertAndRetrieveCase)();
+}
+
+function TESTinsertCoherence() {
+  insertTestBodyGen('commit-coherence', insertAndRetrieveCoherentCase)();
 }
 
 function setupTestUpdate(name: string, d: McDimension, c: Coord3, desc: undefined | string) {
   new Location(name, d, c, desc).commitToDb();
 }
 
-function getTestForDescVal(name: string, val: undefined | string, body: (name: string, d: McDimension, c: Coord3, desc: undefined | string) => void) {
+function getTestForDescVal(name: string, val: undefined | string, body: (name: string, d: McDimension, c: Coord3, desc: undefined | string, cs: CaseGenT) => void, caseGen: CaseGenT) {
   return () => {
     setupTestUpdate(name, McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, val)
-    body(name, McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, val);
+    body(name, McDimension.OVERWORLD, { x: 0, y: 1, z: 3 }, val, caseGen);
   }
 }
 
-function locationUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string) {
-  const ok = [
-    ["REcommit is consistent (coord)", updateAndRetrieve(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc)],
-    ["REcommit is consistent (coord second same)", updateAndRetrieve(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc)],
-    ["REcommit is consistent (coord third)", updateAndRetrieve(name, d, { x: c.x + 3, y: c.y, z: c.z }, desc)],
-  ];
-  testRunner('commit ' + name, ok, []);
+function okTest(test: () => boolean) {
+  return () => {
+    if (!test()) {
+      throw new Error("Test failed");
+    }
+  }
 }
 
-function dimUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string) {
+function locationUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string, caseGen: CaseGenT) {
   const ok = [
-    ["REcommit is consistent (dim)", () => !updateAndRetrieve(name, (d == McDimension.END ? McDimension.OVERWORLD : McDimension.END), c, desc)],
-    ["REcommit is consistent (dim same)", () => !updateAndRetrieve(name, (d == McDimension.END ? McDimension.OVERWORLD : McDimension.END), c, desc)],
-    ["REcommit is consistent (dim new)", () => !updateAndRetrieve(name, (d == McDimension.END ? McDimension.END : McDimension.NETHER), c, desc)],
+    ["REcommit is consistent (coord)", okTest(caseGen(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc))],
+    ["REcommit is consistent (coord second same)", okTest(caseGen(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc))],
+    ["REcommit is consistent (coord third)", okTest(caseGen(name, d, { x: c.x + 3, y: c.y, z: c.z }, desc))],
   ];
-  testRunner('commit ' + name, ok, []);
+  testRunner('update ' + name, ok, []);
 }
 
-function descUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string) {
+function dimUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string, caseGen: CaseGenT) {
   const ok = [
-    ["REcommit is consistent (desc)", updateAndRetrieve(name, d, c, desc === undefined ? "myDescxd" : undefined)],
-    ["REcommit is consistent (desc same)", updateAndRetrieve(name, d, c, desc === undefined ? "myDescxd" : undefined)],
-    ["REcommit is consistent (desc new)", updateAndRetrieve(name, d, c, "myDescxd2")],
+    // ignore warnings for this one!
+    // this is a weird one, technically the first case generates a new dimension-name pair (id)
+    ["REcommit is consistent (dim)", okTest(() => !caseGen(name, (d == McDimension.END ? McDimension.OVERWORLD : McDimension.END), c, desc)())],
+    // the second one tries to update the existing thing, which succeeds
+    ["REcommit is consistent (dim same)", okTest(caseGen(name, (d == McDimension.END ? McDimension.OVERWORLD : McDimension.END), c, desc))],
+    // an the third one creates yet another dimension-name pair (id)
+    ["REcommit is consistent (dim new)", okTest(() => !caseGen(name, (d == McDimension.END ? McDimension.END : McDimension.NETHER), c, desc)())],
   ];
-  testRunner('commit ' + name, ok, []);
+  testRunner('update ' + name, ok, []);
 }
 
-function allUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string) {
+function descUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string, caseGen: CaseGenT) {
   const ok = [
-    ["REcommit is consistent (all)", updateAndRetrieve(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc === undefined ? "myDescxd" : undefined)],
-    ["REcommit is consistent (all same)", updateAndRetrieve(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc === undefined ? "myDescxd" : undefined)],
-    ["REcommit is consistent (all new)", updateAndRetrieve(name, d, { x: c.x + 3, y: c.y, z: c.z }, "myDescxd2")],
+    ["REcommit is consistent (desc)", okTest(caseGen(name, d, c, desc === undefined ? "myDescxd" : undefined))],
+    ["REcommit is consistent (desc same)", okTest(caseGen(name, d, c, desc === undefined ? "myDescxd" : undefined))],
+    ["REcommit is consistent (desc new)", okTest(caseGen(name, d, c, "myDescxd2"))],
   ];
-  testRunner('commit ' + name, ok, []);
+  testRunner('update ' + name, ok, []);
 }
 
+function allUpdateTest(name: string, d: McDimension, c: Coord3, desc: undefined | string, caseGen: CaseGenT) {
+  const ok = [
+    ["REcommit is consistent (all)", okTest(caseGen(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc === undefined ? "myDescxd" : undefined))],
+    ["REcommit is consistent (all same)", okTest(caseGen(name, d, { x: c.x + 1, y: c.y, z: c.z }, desc === undefined ? "myDescxd" : undefined))],
+    ["REcommit is consistent (all new)", okTest(caseGen(name, d, { x: c.x + 3, y: c.y, z: c.z }, "myDescxd2"))],
+  ];
+  testRunner('update ' + name, ok, []);
+}
+
+function TESTremove() {
+  const name = "removeloc";
+  const dim = McDimension.OVERWORLD;
+  const loc = new Location(name, dim, { x: 0, y: 1, z: 3 }, undefined);
+  loc.commitToDb();
+  const remove = () => loc.remove();
+  const cantRetreive = () => {
+    try {
+      locationFromDb(name, dim);
+      return false;
+    } catch {
+      return true;
+    }
+  }
+  const ok = [
+    ["just remove ok", okTest(() => {
+      remove();
+      return cantRetreive();
+    })]
+  ];
+  testRunner('remove', ok, []);
+}
+
+function TESTdoubleRemove() {
+  const name = "removeloc";
+  const dim = McDimension.OVERWORLD;
+  const loc = new Location(name, dim, { x: 0, y: 1, z: 3 }, undefined);
+  loc.commitToDb();
+  const remove = () => loc.remove();
+  const ok = [
+    ["double remove ok", okTest(() => {
+      remove();
+      remove();
+      return true;
+    })]
+  ];
+  testRunner('double remove', ok, []);
+}
 
 export function locationsSuite() {
   setQuietMode(true);
@@ -114,14 +192,18 @@ export function locationsSuite() {
   if (initialize() !== undefined) {
     throw new Error("Failed to initialize the test environment! SOME TESTS DID NOT RUN");
   }
+
   makeTest(TESTinsert)();
-  makeTest(getTestForDescVal('location-update-1', undefined, locationUpdateTest))();
-  makeTest(getTestForDescVal('location-update-2', 'mydesc', locationUpdateTest))();
-  makeTest(getTestForDescVal('dim-update-1', undefined, dimUpdateTest))();
-  makeTest(getTestForDescVal('dim-update-2', 'mydesc', dimUpdateTest))();
-  makeTest(getTestForDescVal('desc-update-1', undefined, descUpdateTest))();
-  makeTest(getTestForDescVal('desc-update-2', 'mydesc', descUpdateTest))();
-  makeTest(getTestForDescVal('all-update-1', undefined, allUpdateTest))();
-  makeTest(getTestForDescVal('all-update-2', 'mydesc', allUpdateTest))();
+  makeTest(TESTinsertCoherence)();
+  makeTest(TESTremove)();
+  makeTest(TESTdoubleRemove)();
+
+  for (const { n: name, t: test } of [{ n: 'location', t: locationUpdateTest }, { n: 'dimension', t: dimUpdateTest }, { n: 'desc', t: descUpdateTest }, { n: 'all', t: allUpdateTest },]) {
+    for (const { n: sep, d: desc } of [{ n: '1', d: undefined }, { n: '2', t: "mydesc" }]) {
+      for (const { n: caseName, c: testCase } of [{ n: 'db', c: updateAndRetrieveCase }, { n: 'coherent', c: updateAndRetrieveCoherentCase }]) {
+        makeTest(getTestForDescVal(`${name}${sep}${caseName}`, desc, test, testCase))();
+      }
+    }
+  }
   setQuietMode(false);
 }
