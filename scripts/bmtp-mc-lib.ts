@@ -1,5 +1,5 @@
-import { McDimension, CmdDesc, optionalArgTypes, getDimensions } from "./bmtp-types"
-import { Player } from "@minecraft/server"
+import { McDimension, CmdDesc, getDimensions } from "./bmtp-types"
+import { Dimension } from "@minecraft/server"
 let DEBUG = false;
 
 export function getDebug(): boolean {
@@ -35,24 +35,23 @@ export function emergency(msg: string) {
   emergencyLogger(msg);
 }
 
-function dimIdString(dim: McDimension): string {
+export function dimIdString(dim: McDimension): string {
   switch (dim) {
+    // using MinecraftDimensionTypes.* constants will make testing impossible
     case McDimension.END: return "minecraft:the_end"
     case McDimension.NETHER: return "minecraft:nether"
     case McDimension.OVERWORLD: return "minecraft:overworld"
   }
 }
 
-export function translateDimension(player: Player): McDimension {
-  const foundDim = getDimensions().find(d => dimIdString(d) === player.dimension.id);
+export function translateDimension(dimension: Dimension): McDimension {
+  const foundDim = getDimensions().find(d => dimIdString(d) === dimension.id);
   if (foundDim !== undefined) {
     return foundDim;
   }
-  const msg = `Dimension Id ${player.dimension.id} not recognised!`;
-  player.sendMessage("ERROR, please report this: " + msg);
-  throw new Error(msg);
+  throw new Error(`Dimension Id ${dimension.id} not recognised!`);
 }
 
 export function getMandatoryArgCount(cmd: CmdDesc): number {
-  return cmd.argDesc.filter(d => !optionalArgTypes().has(d.type)).length;
+  return cmd.argDesc.filter(d => !d.optional).length;
 }

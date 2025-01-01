@@ -2,10 +2,8 @@
 import {
   ArgDesc, ArgType, WrapMcDimension, BMTP_COMMAND_HEAD, BmTpCommand,
   Coord3, CmdDesc,
-  cmdDescriptions, Teleport, stringToDim,
-  COMMANDS,
-  JUST_TP,
-  cmdCtor
+  cmdDescriptions, stringToDim,
+  COMMANDS
 } from "./bmtp-types";
 import * as lib from "./bmtp-mc-lib"
 
@@ -49,7 +47,6 @@ function validateArg(val: string, desc: ArgDesc): ParsingError | boolean {
 export function parseArg(val: string, desc: ArgDesc): string | number | WrapMcDimension {
   switch (desc.type) {
     case ArgType.String: return val;
-    case ArgType.OptString: return val;
     case ArgType.Int:
       // eslint-disable-next-line no-case-declarations
       const res = Number(val);
@@ -115,6 +112,19 @@ function tryParseCommand(spec: CmdDesc, args: string[]): ParsingError | BmTpComm
   }
 }
 
+function implCommandParsing(cmdSpecRequested: CmdDesc, cmdArgs: string[]): ParsingError | BmTpCommand {
+  const validationResult = validateArguments(cmdSpecRequested, cmdArgs);
+  if (validationResult instanceof ParsingError) {
+    return validationResult;
+  }
+
+  try {
+    return tryParseCommand(cmdSpecRequested, cmdArgs);
+  } catch (e) {
+    return new ParsingError(`Unable to construct command ${cmdSpecRequested.alts[0]}: ${e}`);
+  }
+}
+
 
 export function parseBmtpCommand(candidate: string): SilentError | ParsingError | BmTpCommand {
   if (!bmtpIsValidCandidate(candidate)) {
@@ -133,29 +143,16 @@ export function parseBmtpCommand(candidate: string): SilentError | ParsingError 
   }
 
   const keyword = args[0];
+  // due to the syntax of the teleportation command, we first check for a valid
+  // !tp <locaiton> command and then try other commands
   const cmdSpecRequested = getCmdSpecForAltNameMatch(keyword);
-  if (cmdSpecRequested === undefined && args.length > 1) {
-    return new ParsingError(`Command ${keyword} not found`);
-  } else if (cmdSpecRequested === undefined) { // length must be == 1 as < and > is checked above
-    // special case, teleport command has no "keyword"
-    // !tp locationName is a valid teleport command
-    try {
-      // TODO handle this in the parser directly...
-      return cmdCtor(JUST_TP, new Teleport(keyword));
-    } catch (e) {
-      return new ParsingError(`Teleport command error: ${e}`);
-    }
+  const tpCommandParseAttempt = implCommandParsing(cmdDescriptions.justTp, args);
+  if (cmdSpecRequested === undefined && tpCommandParseAttempt instanceof ParsingError) {
+    return new ParsingError(`Command ${keyword} not found (${tpCommandParseAttempt.msg})`);
+  } else if (cmdSpecRequested === undefined) {
+    return tpCommandParseAttempt;
   }
 
   const cmdArgs = args.slice(1);
-  const validationResult = validateArguments(cmdSpecRequested, cmdArgs);
-  if (validationResult instanceof ParsingError) {
-    return validationResult;
-  }
-
-  try {
-    return tryParseCommand(cmdSpecRequested, cmdArgs);
-  } catch (e) {
-    return new ParsingError(`Unable to construct command ${cmdSpecRequested.alts[0]}: ${e}`);
-  }
+  return implCommandParsing(cmdSpecRequested, cmdArgs);
 }

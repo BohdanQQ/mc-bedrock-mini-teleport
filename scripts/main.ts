@@ -1,4 +1,4 @@
-import { world, system, Player } from "@minecraft/server";
+import { world, system, Player, DimensionTypes, Dimension } from "@minecraft/server";
 import {
   BmTpCommand, dimString, getDimensions, McDimension, Coord3,
   GET_HLP,
@@ -13,7 +13,7 @@ import {
   EXP_CSV
 } from "./bmtp-types";
 import { parseBmtpCommand, ParsingError, SilentError } from "./bmtp-parser";
-import { getDebug, disableDebug, translateDimension, setLoggers } from "./bmtp-mc-lib";
+import { getDebug, disableDebug, translateDimension, setLoggers, dimIdString, emergency } from "./bmtp-mc-lib";
 import { ColoredString, ChatColor } from "./bmtp-lib";
 import { debugInspectProperties, getDimensionLocations, initialize, Location, NEVERUSE_PURGE_ALL } from "./bmtp-locations";
 import { initProvider } from "./bmtp-data-providers";
@@ -50,9 +50,22 @@ function executeCommandAdd(name: string, dim: McDimension, { x, y, z }: Coord3, 
   return `Created ${clrPink(name)}!`;
 }
 
+// function cannot be inside mc-lib, because tests wont execute that way 
+// gets Dimension based on the dimension specifier (or returns the supplied default value)
+function dimensionOrDefault(specifier: McDimension | undefined, defaultValue: Dimension): Dimension {
+  if (specifier === undefined) {
+    return defaultValue;
+  }
+  const dimType = DimensionTypes.get(dimIdString(specifier));
+  if (dimType !== undefined) {
+    return world.getDimension(dimType.typeId);
+  } else {
+    return defaultValue
+  }
+}
+
 function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
-  const dim = translateDimension(player);
-  const playerDimLocations = getDimensionLocations(dim);
+  const dim = translateDimension(player.dimension);
   const report = (s: string) => player.sendMessage(s);
   const debugReport = (s: string) => {
     if (getDebug()) { player.sendMessage(`DEBUG: ${s}`) }
@@ -78,6 +91,7 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
     }
     case JUST_TP: {
       const cmd = icmd.val;
+      // handle debug commands first
       if (getDebug()) {
         if (cmd.name === 'dbg-clear-IKNOWWHATIMDOING') {
           NEVERUSE_PURGE_ALL();
@@ -89,22 +103,28 @@ function executeBmtpCommand(cmd: BmTpCommand, player: Player): void {
           debugReport(`all world dynamic properties recognised by bmtp:\n${debugInspectProperties()}`);
         }
       }
-      const found = playerDimLocations.get(cmd.name);
+
+      // re-determine the dimension - can be overriden by the teleport command
+      const dimension = dimensionOrDefault(cmd.dim, player.dimension);
+      const dim = translateDimension(dimension);
+      const found = getDimensionLocations(dim).get(cmd.name)
       const clrName = clrPink(cmd.name);
       if (found === undefined) {
-        report(`Invalid location ${clrName} for the current dimension: ${clrPink(dimString(dim))}`);
+        report(`Invalid location ${clrName} for the dimension: ${clrPink(dimString(dim))}`);
         return;
       } else if (found._coords === undefined) {
         report(`Location ${clrName} is CORRUPTED.Report this!`);
         return;
       }
       const coords = found._coords;
-      player.runCommandAsync(`tp ${coords.x} ${coords.y} ${coords.z}`).then(() => {
+      try {
+        // for some reason, checkForBlocks: true does not do anything
+        player.teleport(coords, { dimension });
         report("Teleported to " + clrName);
-      }).catch((err) => {
+      } catch (err) {
         report("Failed to teleport to " + clrName);
         report(`${err}`);
-      });
+      }
       return;
     }
     case REM_GEN: {
@@ -192,7 +212,12 @@ function bindCmdHandler() {
     if (cmd instanceof ParsingError) {
       player.sendMessage(new ColoredString('!', ChatColor.White).colored(ChatColor.Red, 'Error').text(`\n${cmd.msg}`).value());
     } else if (!(cmd instanceof SilentError)) {
-      executeBmtpCommand(cmd, player);
+      try {
+        executeBmtpCommand(cmd, player);
+      } catch (e) {
+        player.sendMessage(`Error when executing command: ${e}`);
+        emergency(`Error when executing command: ${e}`);
+      }
     }
   });
 }

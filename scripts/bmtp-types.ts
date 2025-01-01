@@ -86,17 +86,13 @@ export const RESERVED_NAMES = [
 ];
 
 export enum ArgType {
-  String, Int, OptString, Dimension
-}
-
-const OPTIONAL_ARG_TYPES = new Set([ArgType.OptString]);
-export function optionalArgTypes(): Set<ArgType> {
-  return OPTIONAL_ARG_TYPES;
+  String, Int, Dimension
 }
 
 export interface ArgDesc {
   name: string,
-  type: ArgType
+  type: ArgType,
+  optional: boolean
 }
 type ParsedArgsArr = (string | Coord3 | WrapMcDimension)[];
 
@@ -113,8 +109,7 @@ export function getHelpString(cmd: CmdDesc) {
     .toggleColor(ChatColor.Gold)
     .text(cmd.alts.join(`${ChatColor.White} | ${ChatColor.Gold}`))
     .toggleColor(ChatColor.Green);
-  const args = cmd.argDesc.map(i => optionalArgTypes()
-    .has(i.type) ? `[ ${i.name.toUpperCase()} ]` : i.name.toUpperCase()).join('  ')
+  const args = cmd.argDesc.map(i => i.optional ? `[ ${i.name.toUpperCase()} ]` : i.name.toUpperCase()).join('  ')
   text.text(`${cmd.alts.length == 0 ? '' : ' '}${args}`);
   text.resetColor();
   text.colored(ChatColor.Gray, `\n    ${cmd.usageStr}\n`);
@@ -176,12 +171,14 @@ function enforceDescriptionValid(s: string | undefined) {
 }
 
 export class Teleport {
-  constructor(val: string) {
+  constructor(val: string, dim: McDimension | undefined) {
     enforceNotReserved([val]);
     enforceLocationNameValid(val);
     this.name = val;
+    this.dim = dim;
   }
   name: string = ""
+  dim: McDimension | undefined = undefined
 };
 
 export class AddFromCurrentLocation {
@@ -268,6 +265,18 @@ const HELP_FLYWEIGHT = cmdCtor(GET_HLP, new Help());
 const EXPORT_FLYWEIGHT = cmdCtor(EXP_CSV, new ExportAsSCSV());
 
 
+function requiredArg(name: string, type: ArgType): ArgDesc {
+  return {
+    name, type, optional: false
+  }
+}
+
+function optionalArg(name: string, type: ArgType): ArgDesc {
+  const rv = requiredArg(name, type);
+  rv.optional = true;
+  return rv;
+}
+
 /** Command descriptions for the parser
  * Due to the current parsing implementation, optional args MUST be at the tail
  * and MUST be considered eagerly evaluated 
@@ -277,9 +286,9 @@ const EXPORT_FLYWEIGHT = cmdCtor(EXP_CSV, new ExportAsSCSV());
 export const cmdDescriptions: Record<CommandID, CmdDesc> = {
   [JUST_TP]: {
     alts: [],
-    argDesc: [{ name: "name", type: ArgType.String }],
-    usageStr: "teleports you within your current dimension",
-    construct: ([name]: ParsedArgsArr) => cmdCtor(JUST_TP, new Teleport(name as string))
+    argDesc: [requiredArg("name", ArgType.String), optionalArg("dimension", ArgType.Dimension)],
+    usageStr: "teleports you within your current dimension or into a dimension you specify",
+    construct: ([name, ...rest]: ParsedArgsArr) => cmdCtor(JUST_TP, new Teleport(name as string, valueOrUndefined<WrapMcDimension>(0, rest)?.dim))
   },
   [LST_ALL]: {
     alts: [NAMES.listAll],
@@ -307,31 +316,31 @@ export const cmdDescriptions: Record<CommandID, CmdDesc> = {
   },
   [ADD_CUR]: {
     alts: [NAMES.addCurrentLoc],
-    argDesc: [{ name: "name", type: ArgType.String }, { name: "description", type: ArgType.OptString }],
+    argDesc: [requiredArg("name", ArgType.String), optionalArg("description", ArgType.String)],
     usageStr: "adds your current player location under a name and a description",
     construct: ([name, ...rest]: ParsedArgsArr) => cmdCtor(ADD_CUR, new AddFromCurrentLocation(name as string, valueOrUndefined(0, rest)))
   },
   [ADD_DIM]: {
     alts: [NAMES.addCoords],
-    argDesc: [{ name: "name", type: ArgType.String }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
+    argDesc: [requiredArg("name", ArgType.String), requiredArg("x", ArgType.Int), requiredArg("y", ArgType.Int), requiredArg("z", ArgType.Int), optionalArg("description", ArgType.String)],
     usageStr: "adds specified location within your current dimension under a name and a description",
     construct: ([name, loc, ...rest]: ParsedArgsArr) => cmdCtor(ADD_DIM, new AddFromCurrentDimension(name as string, loc as Coord3, valueOrUndefined(0, rest)))
   },
   [ADD_GEN]: {
     alts: [NAMES.addDimCoords],
-    argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
+    argDesc: [requiredArg("name", ArgType.String), requiredArg("dimension", ArgType.Dimension), requiredArg("x", ArgType.Int), requiredArg("y", ArgType.Int), requiredArg("z", ArgType.Int), optionalArg("description", ArgType.String)],
     usageStr: "adds specified location within the specified dimension under a name and a description",
     construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => cmdCtor(ADD_GEN, new AddGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest)))
   },
   [UPD_GEN]: {
     alts: [NAMES.update],
-    argDesc: [{ name: "name", type: ArgType.String }, { name: "dimension", type: ArgType.Dimension }, { name: "x", type: ArgType.Int }, { name: "y", type: ArgType.Int }, { name: "z", type: ArgType.Int }, { name: "description", type: ArgType.OptString }],
+    argDesc: [requiredArg("name", ArgType.String), requiredArg("dimension", ArgType.Dimension), requiredArg("x", ArgType.Int), requiredArg("y", ArgType.Int), requiredArg("z", ArgType.Int), optionalArg("description", ArgType.String)],
     usageStr: "updates the coordinates and description of a location specified by name and dimension (dimension cannot be changed, instead remove and re-add the entry)",
     construct: ([name, dim, loc, ...rest]: ParsedArgsArr) => cmdCtor(UPD_GEN, new UpdateGeneralLocation(name as string, loc as Coord3, (dim as WrapMcDimension).dim, valueOrUndefined(0, rest)))
   },
   [REM_GEN]: {
     alts: [NAMES.remove],
-    argDesc: [{ name: "dimension", type: ArgType.Dimension }, { name: "name", type: ArgType.String }],
+    argDesc: [requiredArg("dimension", ArgType.Dimension), requiredArg("name", ArgType.String)],
     usageStr: "removes the specified location within the specified dimension FOREVER",
     construct: ([dim, name]: ParsedArgsArr) => cmdCtor(REM_GEN, new RemoveLocation(name as string, (dim as WrapMcDimension).dim))
   }

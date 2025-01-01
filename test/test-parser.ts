@@ -310,7 +310,7 @@ function TESTparseDimension() {
   testInform('Dimension parsing');
   for (const { val, expected } of dimCases) {
     try {
-      if ((parseArg(val, { name: 'x', type: types.ArgType.Dimension }) as types.WrapMcDimension).dim !== expected) {
+      if ((parseArg(val, { name: 'x', type: types.ArgType.Dimension, optional: false }) as types.WrapMcDimension).dim !== expected) {
         throw new Error(`Value ${val} is not parsed correctly`);
       }
     } catch {
